@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import Breadcrumbs from '../components/Breadcrumbs';
 import api from '../utils/api';
 import type { Order, OrderStatus } from '../types/order';
 
@@ -18,6 +19,8 @@ export default function AdminPage() {
   const [error,      setError]      = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [pinError,   setPinError]   = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -53,6 +56,22 @@ export default function AdminPage() {
   const pendingCount   = orders.filter((o) => o.order_status === 'pending').length;
   const confirmedCount = orders.filter((o) => o.order_status === 'confirmed').length;
   const deliveredCount = orders.filter((o) => o.order_status === 'delivered').length;
+  const totalRevenue   = orders.reduce((sum, o) => sum + ((o.price ?? 0) * o.quantity), 0);
+  const todayOrders    = orders.filter(o => new Date(o.timestamp).toDateString() === new Date().toDateString()).length;
+  const pendingPayment = orders.filter(o => o.payment_method === 'cod' && o.order_status === 'pending').length;
+
+  // Suppress unused warnings - values used in JSX
+  void pendingCount, confirmedCount, deliveredCount;
+
+  const filteredOrders = orders
+    .filter(o => filterStatus === 'all' ? true : o.order_status === filterStatus)
+    .filter(o => 
+      searchTerm ? 
+        o.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.phone.includes(searchTerm) ||
+        o.product.toLowerCase().includes(searchTerm.toLowerCase())
+      : true
+    );
 
   /* ── PIN Gate ──────────────────────────────────────────────────────── */
   if (!authed) {
@@ -99,58 +118,106 @@ export default function AdminPage() {
 
   /* ── Dashboard ─────────────────────────────────────────────────────── */
   return (
-    <main className="pt-28 pb-20 px-6 min-h-screen">
+    <main className="pt-24 pb-20 min-h-screen px-6">
+      <Breadcrumbs />
+
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
-          <div>
-            <p className="font-body text-gold text-xs uppercase tracking-widest mb-2" style={{ letterSpacing: '0.4em' }}>
-              Admin Dashboard
-            </p>
-            <h1 className="font-display text-ivory text-3xl md:text-4xl" style={{ fontStyle: 'italic', fontWeight: 700 }}>
-              All Orders
-            </h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="font-body text-silver text-xs">{orders.length} total</span>
-            <button
-              onClick={fetchOrders}
-              disabled={loading}
-              className="btn-gold"
-              style={{ padding: '0.5rem 1.5rem', fontSize: '0.65rem' }}
-            >
-              {loading ? 'Loading…' : 'Refresh'}
-            </button>
-            <button
-              onClick={() => setAuthed(false)}
-              className="font-body text-silver text-xs uppercase tracking-widest hover:text-gold transition-colors"
-              style={{ letterSpacing: '0.15em' }}
-            >
-              Logout
-            </button>
-          </div>
+        <div className="text-center mb-12 mt-8">
+          <p className="font-body text-gold text-xs uppercase tracking-widest mb-3" style={{ letterSpacing: '0.4em' }}>
+            Admin Dashboard
+          </p>
+          <h1 className="font-display text-ivory" style={{ fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontStyle: 'italic', fontWeight: 700 }}>
+            Order Management
+          </h1>
+          <div className="gold-line mt-5 mx-auto" style={{ width: '60px' }} />
         </div>
 
-        <div className="gold-line mb-8" />
+        {/* Logout button */}
+        <div className="flex justify-end mb-8">
+          <button
+            onClick={() => setAuthed(false)}
+            className="font-body text-silver text-xs uppercase tracking-widest hover:text-gold transition-colors"
+            style={{ letterSpacing: '0.15em' }}
+          >
+            🔒 Logout
+          </button>
+        </div>
 
-        {/* Stats row */}
+        {/* Enhanced Stats Grid */}
         {orders.length > 0 && (
-          <div className="grid grid-cols-3 gap-4 mb-10">
-            {([
-              { label: 'Pending',   count: pendingCount,   color: 'text-yellow-400' },
-              { label: 'Confirmed', count: confirmedCount, color: 'text-blue-400' },
-              { label: 'Delivered', count: deliveredCount, color: 'text-green-400' },
-            ] as { label: string; count: number; color: string }[]).map(({ label, count, color }) => (
-              <div key={label} className="glass-card p-4 text-center">
-                <p className={`font-display text-2xl font-bold ${color}`}>{count}</p>
-                <p className="font-body text-silver text-xs uppercase mt-1" style={{ letterSpacing: '0.2em' }}>
-                  {label}
-                </p>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+            <div className="glass-card p-6">
+              <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">Total Orders</p>
+              <p className="font-display text-gold text-3xl font-bold">{orders.length}</p>
+              <p className="font-body text-silver/50 text-xs mt-2">All time</p>
+            </div>
+
+            <div className="glass-card p-6">
+              <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">Total Revenue</p>
+              <p className="font-display text-green-500 text-3xl font-bold">₹{(totalRevenue / 1000).toFixed(1)}K</p>
+              <p className="font-body text-silver/50 text-xs mt-2">₹{totalRevenue.toLocaleString('en-IN')}</p>
+            </div>
+
+            <div className="glass-card p-6">
+              <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">Today's Orders</p>
+              <p className="font-display text-blue-500 text-3xl font-bold">{todayOrders}</p>
+              <p className="font-body text-silver/50 text-xs mt-2">New orders</p>
+            </div>
+
+            <div className="glass-card p-6">
+              <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">Pending Payment</p>
+              <p className="font-display text-yellow-500 text-3xl font-bold">{pendingPayment}</p>
+              <p className="font-body text-silver/50 text-xs mt-2">COD awaiting</p>
+            </div>
           </div>
         )}
+
+        {/* Search & Filter */}
+        <div className="glass-card p-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block font-body text-silver text-xs uppercase tracking-widest mb-3">
+                Search Orders
+              </label>
+              <input
+                type="text"
+                placeholder="Name, phone, or product"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-luxury w-full"
+              />
+            </div>
+
+            <div>
+              <label className="block font-body text-silver text-xs uppercase tracking-widest mb-3">
+                Filter by Status
+              </label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as OrderStatus | 'all')}
+                className="input-luxury w-full"
+              >
+                <option value="all">All Orders</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="delivered">Delivered</option>
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={fetchOrders}
+                disabled={loading}
+                className="btn-gold w-full"
+                style={{ padding: '0.7rem 1.5rem' }}
+              >
+                {loading ? 'Loading…' : '🔄 Refresh'}
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* States */}
         {loading && <p className="font-body text-silver text-sm text-center py-20">Loading orders…</p>}
@@ -162,7 +229,7 @@ export default function AdminPage() {
         )}
 
         {/* Orders table */}
-        {!loading && orders.length > 0 && (
+        {!loading && filteredOrders.length > 0 && (
           <div className="overflow-x-auto scrollbar-hide">
             <table className="w-full min-w-[900px]">
               <thead>
@@ -179,7 +246,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <tr key={order._id} className="border-b border-graphite hover:bg-graphite/40 transition-colors duration-200">
 
                     <td className="font-body text-silver text-xs py-5 pr-6 whitespace-nowrap">

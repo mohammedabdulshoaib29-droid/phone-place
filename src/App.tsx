@@ -6,6 +6,11 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
 import AdminPage from './pages/AdminPage';
+import AboutUsPage from './pages/AboutUsPage';
+import FAQPage from './pages/FAQPage';
+import PoliciesPage from './pages/PoliciesPage';
+import OrderTrackingPage from './pages/OrderTrackingPage';
+import OrderHistoryPage from './pages/OrderHistoryPage';
 
 export default function App() {
   return (
@@ -17,6 +22,11 @@ export default function App() {
           <Route path="/product/:id"   element={<ProductDetailPage />} />
           <Route path="/checkout/:id"  element={<CheckoutPage />} />
           <Route path="/order-success" element={<OrderSuccessPage />} />
+          <Route path="/about"         element={<AboutUsPage />} />
+          <Route path="/faq"           element={<FAQPage />} />
+          <Route path="/policies"      element={<PoliciesPage />} />
+          <Route path="/track/:orderId" element={<OrderTrackingPage />} />
+          <Route path="/my-orders"     element={<OrderHistoryPage />} />
           <Route path="/admin"         element={<AdminPage />} />
         </Route>
       </Routes>
