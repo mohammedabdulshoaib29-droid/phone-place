@@ -33,15 +33,16 @@ app.get('/health', (_req, res) =>
 );
 
 // ── MongoDB + Start ──────────────────────────────────────────────────────────
+app.listen(PORT, () =>
+  console.log(`🚀  Phone Palace API running on http://localhost:${PORT}`)
+);
+
 mongoose
   .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/phone-palace')
   .then(() => {
     console.log('✅  Connected to MongoDB');
-    app.listen(PORT, () =>
-      console.log(`🚀  Phone Palace API running on http://localhost:${PORT}`)
-    );
   })
   .catch((err) => {
     console.error('❌  MongoDB connection error:', err.message);
-    process.exit(1);
+    console.error('⚠️  Server will continue running, but database-backed routes may fail until MONGODB_URI is fixed.');
   });
