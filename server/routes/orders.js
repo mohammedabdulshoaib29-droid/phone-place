@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const router   = express.Router();
 const Order    = require('../models/Order');
 
+const fallbackOrders = [];
+
 // POST /order — create new order
 router.post('/order', async (req, res) => {
   try {
@@ -17,13 +19,17 @@ router.post('/order', async (req, res) => {
     }
 
     if (mongoose.connection.readyState !== 1) {
+      const fallbackOrder = {
+        ...order.toObject(),
+        _id: `offline-${Date.now()}`,
+      };
+
+      fallbackOrders.unshift(fallbackOrder);
+
       return res.status(202).json({
         success: true,
         persisted: false,
-        order: {
-          ...order.toObject(),
-          _id: `offline-${Date.now()}`,
-        },
+        order: fallbackOrder,
         warning: 'Database is unavailable, but the order was accepted in fallback mode.',
       });
     }
@@ -39,9 +45,7 @@ router.post('/order', async (req, res) => {
 router.get('/orders', async (req, res) => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: 'Database is unavailable. Orders cannot be listed right now.',
-      });
+      return res.json(fallbackOrders);
     }
 
     const orders = await Order.find().sort({ timestamp: -1 });
@@ -54,17 +58,27 @@ router.get('/orders', async (req, res) => {
 // PATCH /orders/:id/status — update order status
 router.patch('/orders/:id/status', async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({
-        error: 'Database is unavailable. Order status cannot be updated right now.',
-      });
-    }
-
     const { order_status } = req.body;
     const valid = ['pending', 'confirmed', 'delivered'];
     if (!valid.includes(order_status)) {
       return res.status(400).json({ error: 'Invalid status value' });
     }
+
+    if (mongoose.connection.readyState !== 1) {
+      const index = fallbackOrders.findIndex((order) => order._id === req.params.id);
+
+      if (index === -1) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      fallbackOrders[index] = {
+        ...fallbackOrders[index],
+        order_status,
+      };
+
+      return res.json({ success: true, order: fallbackOrders[index] });
+    }
+
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { order_status },
