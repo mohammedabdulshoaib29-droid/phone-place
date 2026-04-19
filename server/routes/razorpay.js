@@ -3,14 +3,30 @@ const router   = express.Router();
 const Razorpay = require('razorpay');
 const crypto   = require('crypto');
 
-const razorpay = new Razorpay({
-  key_id:     process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+function getRazorpayClient() {
+  const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
+
+  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+    return null;
+  }
+
+  return new Razorpay({
+    key_id: RAZORPAY_KEY_ID,
+    key_secret: RAZORPAY_KEY_SECRET,
+  });
+}
 
 // POST /razorpay/create-order
 router.post('/create-order', async (req, res) => {
   try {
+    const razorpay = getRazorpayClient();
+
+    if (!razorpay) {
+      return res.status(503).json({
+        error: 'Razorpay is not configured on the server',
+      });
+    }
+
     const { amount } = req.body; // amount in paise
     const order = await razorpay.orders.create({
       amount,
@@ -26,6 +42,13 @@ router.post('/create-order', async (req, res) => {
 // POST /razorpay/verify — verify payment signature
 router.post('/verify', (req, res) => {
   try {
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(503).json({
+        success: false,
+        error: 'Razorpay is not configured on the server',
+      });
+    }
+
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
     const sign = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSign = crypto
