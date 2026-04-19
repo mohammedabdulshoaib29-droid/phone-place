@@ -3,6 +3,8 @@ require('dotenv').config();
 const express   = require('express');
 const cors      = require('cors');
 const mongoose  = require('mongoose');
+const path      = require('path');
+const fs        = require('fs');
 const orderRoutes    = require('./routes/orders');
 const razorpayRoutes = require('./routes/razorpay');
 
@@ -27,7 +29,26 @@ app.use(express.json());
 app.use('/api', orderRoutes);
 app.use('/api/razorpay', razorpayRoutes);
 
-// ── Health check ─────────────────────────────────────────────────────────────
+const distPath = path.join(__dirname, '..', 'dist');
+const indexPath = path.join(distPath, 'index.html');
+
+// ── Root + Health check ──────────────────────────────────────────────────────
+app.get('/', (_req, res) => {
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+
+  if (process.env.FRONTEND_URL) {
+    return res.redirect(process.env.FRONTEND_URL);
+  }
+
+  return res.status(200).json({
+    status: 'ok',
+    message: 'Phone Palace API is running',
+    health: '/health',
+  });
+});
+
 app.get('/health', (_req, res) =>
   res.json({ status: 'ok', message: 'Phone Palace API is running' })
 );
