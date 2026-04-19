@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { products } from '../data/products';
 import api from '../utils/api';
 import { loadRazorpayScript } from '../utils/razorpay';
+import TrustBadges from '../components/TrustBadges';
 import type { PaymentMethod } from '../types/order';
 
 const WHATSAPP_NUMBER = '917997000166';
@@ -222,6 +223,20 @@ export default function CheckoutPage() {
           >
             Change
           </button>
+        </div>
+
+        {/* Trust Badges */}
+        <div className="mb-12">
+          <p
+            className="font-body text-gold text-xs uppercase tracking-widest text-center mb-8"
+            style={{ letterSpacing: '0.4em' }}
+          >
+            Shop with Confidence
+          </p>
+          <TrustBadges
+            types={['ssl', 'secure', 'authentic', 'guarantee']}
+            layout="grid"
+          />
         </div>
 
         {/* ── Form ─────────────────────────────────────────────────────── */}

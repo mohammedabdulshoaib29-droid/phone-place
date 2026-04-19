@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 
 const navLinks = [
   { label: 'Shop',     to: '/products', isRoute: true },
+  { label: 'Coupons',  to: '/coupons',  isRoute: true },
   { label: 'About',    to: '/about',    isRoute: true },
   { label: 'FAQ',      to: '/faq',      isRoute: true },
   { label: 'My Orders', to: '/my-orders', isRoute: true },
+  { label: 'Referral', to: '/referral', isRoute: true },
 ];
 
 export default function Navbar() {

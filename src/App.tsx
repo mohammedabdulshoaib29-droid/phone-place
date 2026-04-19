@@ -11,6 +11,10 @@ import FAQPage from './pages/FAQPage';
 import PoliciesPage from './pages/PoliciesPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
+import NotificationSettingsPage from './pages/NotificationSettingsPage';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import ReferralProgram from './pages/ReferralProgram';
+import CouponManager from './pages/CouponManager';
 
 export default function App() {
   return (
@@ -27,7 +31,11 @@ export default function App() {
           <Route path="/policies"      element={<PoliciesPage />} />
           <Route path="/track/:orderId" element={<OrderTrackingPage />} />
           <Route path="/my-orders"     element={<OrderHistoryPage />} />
+          <Route path="/notifications" element={<NotificationSettingsPage />} />
+          <Route path="/coupons"       element={<CouponManager />} />
+          <Route path="/referral"      element={<ReferralProgram />} />
           <Route path="/admin"         element={<AdminPage />} />
+          <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
         </Route>
       </Routes>
     </BrowserRouter>

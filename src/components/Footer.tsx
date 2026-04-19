@@ -53,7 +53,7 @@ export default function Footer() {
       </div>
 
       {/* Links Grid */}
-      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 mb-16 text-center">
+      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-6 mb-16 text-center">
         {/* Shop */}
         <div>
           <p className="font-body text-gold text-xs uppercase mb-4 tracking-widest">Shop</p>
@@ -65,16 +65,16 @@ export default function Footer() {
               All Products
             </Link>
             <Link
-              to="/products"
+              to="/coupons"
               className="font-body text-silver text-xs hover:text-gold transition-colors duration-300 block"
             >
-              New Arrivals
+              Coupons
             </Link>
             <Link
-              to="/products"
+              to="/referral"
               className="font-body text-silver text-xs hover:text-gold transition-colors duration-300 block"
             >
-              Best Sellers
+              Referral Program
             </Link>
           </div>
         </div>
@@ -109,6 +109,31 @@ export default function Footer() {
             >
               Instagram
             </a>
+          </div>
+        </div>
+
+        {/* Account */}
+        <div>
+          <p className="font-body text-gold text-xs uppercase mb-4 tracking-widest">Account</p>
+          <div className="space-y-3">
+            <Link
+              to="/my-orders"
+              className="font-body text-silver text-xs hover:text-gold transition-colors duration-300 block"
+            >
+              Order History
+            </Link>
+            <Link
+              to="/notifications"
+              className="font-body text-silver text-xs hover:text-gold transition-colors duration-300 block"
+            >
+              Notifications
+            </Link>
+            <Link
+              to="/track/"
+              className="font-body text-silver text-xs hover:text-gold transition-colors duration-300 block"
+            >
+              Track Order
+            </Link>
           </div>
         </div>
 
