@@ -24,8 +24,8 @@ app.use(cors({
 app.use(express.json());
 
 // ── Routes ───────────────────────────────────────────────────────────────────
-app.use('/', orderRoutes);
-app.use('/razorpay', razorpayRoutes);
+app.use('/api', orderRoutes);
+app.use('/api/razorpay', razorpayRoutes);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) =>
