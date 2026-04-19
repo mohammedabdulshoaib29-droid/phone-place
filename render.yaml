@@ -1,0 +1,33 @@
+services:
+  # ── Backend API ────────────────────────────────────────────────────────────
+  - type: web
+    name: phone-place-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+
+  # ── Frontend Static Site ───────────────────────────────────────────────────
+  - type: web
+    name: phone-place
+    runtime: static
+    buildCommand: npm install ; npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_RAZORPAY_KEY_ID
+        sync: false
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
