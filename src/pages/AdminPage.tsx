@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Breadcrumbs from '../components/Breadcrumbs';
 import api from '../utils/api';
 import type { Order, OrderStatus } from '../types/order';
@@ -12,6 +13,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 };
 
 export default function AdminPage() {
+  const navigate = useNavigate();
   const [pin,        setPin]        = useState('');
   const [authed,     setAuthed]     = useState(false);
   const [orders,     setOrders]     = useState<Order[]>([]);
@@ -135,7 +137,14 @@ export default function AdminPage() {
         </div>
 
         {/* Logout button */}
-        <div className="flex justify-end mb-8">
+        <div className="flex justify-end gap-4 mb-8">
+          <button
+            onClick={() => navigate('/admin/analytics')}
+            className="font-body text-gold text-xs uppercase tracking-widest hover:text-ivory transition-colors"
+            style={{ letterSpacing: '0.15em' }}
+          >
+            📊 Analytics Dashboard
+          </button>
           <button
             onClick={() => setAuthed(false)}
             className="font-body text-silver text-xs uppercase tracking-widest hover:text-gold transition-colors"
