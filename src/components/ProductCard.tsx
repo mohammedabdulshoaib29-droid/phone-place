@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Product } from '../data/products';
 import QuickViewModal from './QuickViewModal';
-import AddToCartButton from './AddToCartButton';
-import { useAuth } from '../hooks/useAuth';
 
 type Props = {
   product: Product;
@@ -13,7 +11,6 @@ type Props = {
 
 export default function ProductCard({ product, delay = 0 }: Props) {
   const navigate = useNavigate();
-  const { token } = useAuth();
   const [showQuickView, setShowQuickView] = useState(false);
 
   return (
@@ -180,25 +177,14 @@ export default function ProductCard({ product, delay = 0 }: Props) {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3">
-            {token ? (
-              <AddToCartButton
-                productId={product.id}
-                productName={product.name}
-                productCategory={product.category}
-                price={product.price}
-                image={product.image}
-                selectedVariant={product.variants[0]}
-              />
-            ) : (
-              <button
-                onClick={() => navigate('/login')}
-                className="btn-gold flex-1"
-                aria-label={`Login to book ${product.name}`}
-              >
-                Login to Buy
-              </button>
-            )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(`/checkout/${product.id}`)}
+              className="btn-gold flex-1"
+              aria-label={`Book ${product.name}`}
+            >
+              Book Now
+            </button>
             <button
               onClick={() => navigate(`/product/${product.id}`)}
               className="font-body text-silver text-xs uppercase tracking-widest hover:text-gold transition-colors duration-300 flex-1"

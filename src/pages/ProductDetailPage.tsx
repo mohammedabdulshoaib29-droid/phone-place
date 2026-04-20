@@ -4,49 +4,20 @@ import { products } from '../data/products';
 import { getProductReviews } from '../data/reviews';
 import Breadcrumbs from '../components/Breadcrumbs';
 import ReviewsList from '../components/ReviewsList';
-import ReviewForm from '../components/ReviewForm';
 import ProductCard from '../components/ProductCard';
-import AddToCartButton from '../components/AddToCartButton';
-import { useAuth } from '../hooks/useAuth';
-import api from '../utils/api';
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { token } = useAuth();
   const contentRef = useRef<HTMLDivElement>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState(0);
-  const [dbReviews, setDbReviews] = useState<any>(null);
-  const [reviewsLoading, setReviewsLoading] = useState(true);
 
   const product = products.find((p) => p.id === id);
-  const mockReviews = product ? getProductReviews(product.id) : [];
+  const reviews = product ? getProductReviews(product.id) : [];
   const relatedProducts = product
     ? products.filter((p) => product.relatedIds.includes(p.id)).slice(0, 3)
     : [];
-
-  // Fetch database reviews
-  useEffect(() => {
-    if (!product) return;
-
-    const fetchReviews = async () => {
-      try {
-        setReviewsLoading(true);
-        const { data } = await api.get('/reviews', {
-          params: { productId: product.id, limit: 100 },
-        });
-        setDbReviews(data);
-      } catch (err) {
-        console.error('Failed to load reviews:', err);
-        // Fallback to mock reviews on error
-      } finally {
-        setReviewsLoading(false);
-      }
-    };
-
-    fetchReviews();
-  }, [product]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -280,27 +251,13 @@ export default function ProductDetailPage() {
             )}
 
             {/* CTAs */}
-            <d{token ? (
-                <AddToCartButton
-                  productId={product.id}
-                  productName={product.name}
-                  productCategory={product.category}
-                  price={product.price}
-                  image={product.image}
-                  selectedVariant={product.variants[selectedVariant]}
-                  onSuccess={() => {
-                    // Optional: show success toast or navigate to cart
-                  }}
-                />
-              ) : (
-                <button
-                  onClick={() => navigate('/login')}
-                  className="btn-gold flex-1"
-                  style={{ padding: '1rem 2rem' }}
-                >
-                  Login to Order
-                </button>
-              )}w
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => navigate(`/checkout/${product.id}`)}
+                className="btn-gold flex-1"
+                style={{ padding: '1rem 2rem' }}
+              >
+                Book Now
               </button>
               <button
                 onClick={() => navigate('/products')}
@@ -313,82 +270,16 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Reviews Section */}
-        <div className="max-w-6xl mx-auto border-t border-gold/10 pt-16">
-          {/* Review Form */}
-          {product && (
-            <ReviewForm productId={product.id} />
-          )}
-
-          {/* Reviews List */}
-          {product && (
-            !reviewsLoading ? (
-              dbReviews?.reviews?.length > 0 ? (
-                <div className="bg-charcoal/50 border border-gold/20 rounded-lg p-8">
-                  <h2 className="text-2xl font-display text-ivory mb-8">Database Reviews ({dbReviews.totalReviews})</h2>
-                  {/* Display database reviews */}
-                  <div className="space-y-6">
-                    {dbReviews.reviews.map((review: any) => (
-                      <div key={review._id} className="bg-charcoal/40 border border-gold/10 rounded-lg p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="flex gap-0.5">
-                                {[...Array(5)].map((_, i) => (
-                                  <span
-                                    key={i}
-                                    className={`text-sm ${
-                                      i < review.rating ? 'text-gold' : 'text-gold/30'
-                                    }`}
-                                  >
-                                    ★
-                                  </span>
-                                ))}
-                              </div>
-                              <span className="text-sm font-semibold text-ivory">{review.title}</span>
-                              {review.verified && (
-                                <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                                  ✓ Verified
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-xs text-silver/70">
-                              By {review.userName} • {new Date(review.createdAt).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                        <p className="text-sm text-silver mb-4">{review.comment}</p>
-                        {review.reply && (
-                          <div className="bg-charcoal/60 border-l-2 border-gold/30 rounded-lg p-4 mb-4">
-                            <div className="text-xs text-gold/70 mb-2">Admin Reply:</div>
-                            <p className="text-sm text-silver">{review.reply.text}</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-charcoal/50 border border-gold/20 rounded-lg p-8 text-center">
-                  <p className="text-silver/50">No reviews yet. Be the first to review this product!</p>
-                </div>
-              )
-            ) : (
-              <div className="text-center py-8 text-silver">Loading reviews...</div>
-            )
-          )}
-
-          {/* Fallback: Mock Reviews */}
-          {mockReviews.length > 0 && (
-            <div className="mt-12 pt-12 border-t border-gold/10">
-              <ReviewsList
-                reviews={mockReviews}
-                maxDisplay={3}
-                averageRating={product?.rating || 0}
-                totalReviews={product?.reviewCount || 0}
-              />
-            </div>
-          )}
-        </div>
+        {reviews.length > 0 && (
+          <div className="max-w-6xl mx-auto border-t border-gold/10 pt-16">
+            <ReviewsList
+              reviews={reviews}
+              maxDisplay={3}
+              averageRating={product.rating}
+              totalReviews={product.reviewCount}
+            />
+          </div>
+        )}
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (

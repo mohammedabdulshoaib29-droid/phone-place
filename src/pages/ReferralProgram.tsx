@@ -19,7 +19,7 @@ interface ReferralHistory {
 }
 
 export default function ReferralProgram() {
-  const [stats, _setStats] = useState<ReferralStats>({
+  const [stats, setStats] = useState<ReferralStats>({
     referralCode: 'RAJ-KUMAR-2025',
     referrals: 5,
     earnings: 1500,

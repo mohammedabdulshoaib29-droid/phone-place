@@ -11,13 +11,13 @@ export default function ReturnPolicyPage() {
     {
       title: 'Easy Process',
       description:
-        'Request a return through your account, provide reason and photos if needed, and we'll arrange pickup.',
+        'Request a return through your account, provide reason and photos if needed, and we\'ll arrange pickup.',
       icon: '🔄',
     },
     {
       title: 'Free Return Shipping',
       description:
-        'We'll provide a prepaid return label. No additional charges for return shipping on eligible items.',
+        'We\'ll provide a prepaid return label. No additional charges for return shipping on eligible items.',
       icon: '🚚',
     },
     {
