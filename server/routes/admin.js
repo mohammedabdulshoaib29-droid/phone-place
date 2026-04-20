@@ -74,8 +74,8 @@ router.get('/admin/reviews/all', verifyAdmin, async (req, res) => {
 
     const reviews = await Review.find(query)
       .sort({ createdAt: -1 })
-      .skip(parseInt(skip as string))
-      .limit(parseInt(limit as string))
+      .skip(parseInt(skip))
+      .limit(parseInt(limit))
       .lean();
 
     const total = await Review.countDocuments(query);

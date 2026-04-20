@@ -11,11 +11,17 @@ const emailTransporter = nodemailer.createTransport({
   },
 });
 
-// Setup SMS Service (Twilio)
-const smsClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// Setup SMS Service (Twilio) - Only initialize if credentials are provided
+let smsClient = null;
+function getTwilioClient() {
+  if (!smsClient && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+    smsClient = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+  }
+  return smsClient;
+}
 
 // Email templates
 const emailTemplates = {
@@ -166,6 +172,7 @@ const emailTemplates = {
       </div>
     `,
   }),
+};
 
 // SMS templates
 const smsTemplates = {
@@ -224,7 +231,8 @@ const sendEmail = async (email, templateKey, data) => {
  */
 const sendSMS = async (phone, templateKey, data) => {
   try {
-    if (!smsClient || !process.env.TWILIO_PHONE_NUMBER) {
+    const client = getTwilioClient();
+    if (!client || !process.env.TWILIO_PHONE_NUMBER) {
       console.log('SMS service not configured. Skipping SMS.');
       return { success: false, reason: 'SMS service not configured' };
     }
@@ -236,7 +244,7 @@ const sendSMS = async (phone, templateKey, data) => {
 
     const message = template(data);
 
-    await smsClient.messages.create({
+    await client.messages.create({
       body: message,
       from: process.env.TWILIO_PHONE_NUMBER,
       to: `+91${phone}`, // Assuming Indian phone numbers

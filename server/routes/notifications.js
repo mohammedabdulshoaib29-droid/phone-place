@@ -1,7 +1,7 @@
 const express = require('express');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-const authenticateUser = require('../middleware/auth');
+const { verifyToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
  * Get user's notifications
  * GET /api/notifications
  */
-router.get('/', authenticateUser, async (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
     const { limit = 20, skip = 0, type } = req.query;
 
@@ -42,7 +42,7 @@ router.get('/', authenticateUser, async (req, res) => {
  * Mark notification as read
  * PUT /api/notifications/:id/read
  */
-router.put('/:id/read', authenticateUser, async (req, res) => {
+router.put('/:id/read', verifyToken, async (req, res) => {
   try {
     const notification = await Notification.findByIdAndUpdate(
       req.params.id,
@@ -64,7 +64,7 @@ router.put('/:id/read', authenticateUser, async (req, res) => {
  * Delete notification
  * DELETE /api/notifications/:id
  */
-router.delete('/:id', authenticateUser, async (req, res) => {
+router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const notification = await Notification.findByIdAndDelete(req.params.id);
 
@@ -82,7 +82,7 @@ router.delete('/:id', authenticateUser, async (req, res) => {
  * Get notification preferences
  * GET /api/notifications/preferences
  */
-router.get('/preferences', authenticateUser, async (req, res) => {
+router.get('/preferences', verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     res.json({
@@ -104,7 +104,7 @@ router.get('/preferences', authenticateUser, async (req, res) => {
  * Update notification preferences
  * PUT /api/notifications/preferences
  */
-router.put('/preferences', authenticateUser, async (req, res) => {
+router.put('/preferences', verifyToken, async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.user.id,
@@ -125,7 +125,7 @@ router.put('/preferences', authenticateUser, async (req, res) => {
  * Get unread notification count
  * GET /api/notifications/count/unread
  */
-router.get('/count/unread', authenticateUser, async (req, res) => {
+router.get('/count/unread', verifyToken, async (req, res) => {
   try {
     const count = await Notification.countDocuments({
       userId: req.user.id,
