@@ -1,55 +1,67 @@
 import { useState, useEffect } from 'react';
 import Breadcrumbs from '../components/Breadcrumbs';
+import api from '../utils/api';
 
-interface AnalyticsData {
+interface SummaryMetrics {
   revenue: number;
-  orders: number;
-  customers: number;
+  orderCount: number;
+  newCustomers: number;
+  totalCustomers: number;
   avgOrderValue: number;
-  conversionRate: number;
-  topProducts: { name: string; sales: number; revenue: number }[];
-  revenueByDay: { date: string; revenue: number }[];
-  customerSource: { source: string; count: number }[];
+  pendingOrders: number;
+  completedOrders: number;
+  returnRate: number;
+  avgRating: number;
+  period: string;
 }
 
-const mockAnalytics: AnalyticsData = {
-  revenue: 45320,
-  orders: 28,
-  customers: 24,
-  avgOrderValue: 1618,
-  conversionRate: 3.2,
-  topProducts: [
-    { name: 'Premium Tempered Glass', sales: 12, revenue: 7188 },
-    { name: 'Premium Fast Charger', sales: 8, revenue: 10392 },
-    { name: 'Wireless Charging Pad Pro', sales: 5, revenue: 12495 },
-    { name: 'USB-C Cable 3-pack', sales: 3, revenue: 1497 },
-  ],
-  revenueByDay: [
-    { date: 'Apr 14', revenue: 3200 },
-    { date: 'Apr 15', revenue: 5400 },
-    { date: 'Apr 16', revenue: 2800 },
-    { date: 'Apr 17', revenue: 6100 },
-    { date: 'Apr 18', revenue: 8900 },
-    { date: 'Apr 19', revenue: 12000 },
-    { date: 'Apr 20', revenue: 6920 },
-  ],
-  customerSource: [
-    { source: 'Direct', count: 12 },
-    { source: 'Google Search', count: 8 },
-    { source: 'Instagram', count: 3 },
-    { source: 'Referral', count: 1 },
-  ],
-};
-
 export default function AnalyticsDashboard() {
-  const [analytics, _setAnalytics] = useState<AnalyticsData>(mockAnalytics);
+  const [summary, setSummary] = useState<SummaryMetrics | null>(null);
+  const [revenueByDay, setRevenueByDay] = useState<any[]>([]);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [customerMetrics, setCustomerMetrics] = useState<any>(null);
+  const [reviewStats, setReviewStats] = useState<any>(null);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('week');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
+  const headers = { 'x-admin-pin': 'phonePalace2025' };
+
+  // Fetch all analytics data
   useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const [summaryRes, revenueRes, productsRes, paymentRes, customerRes, reviewRes] =
+          await Promise.all([
+            api.get('/admin/analytics/summary', { params: { period: timeRange }, headers }),
+            api.get('/admin/analytics/revenue-by-date', { params: { period: timeRange }, headers }),
+            api.get('/admin/analytics/top-products', { params: { period: timeRange }, headers }),
+            api.get('/admin/analytics/payment-methods', { params: { period: timeRange }, headers }),
+            api.get('/admin/analytics/customer-metrics', { params: { period: timeRange }, headers }),
+            api.get('/admin/analytics/review-stats', { headers }),
+          ]);
+
+        setSummary(summaryRes.data);
+        setRevenueByDay(revenueRes.data);
+        setTopProducts(productsRes.data);
+        setPaymentMethods(paymentRes.data);
+        setCustomerMetrics(customerRes.data);
+        setReviewStats(reviewRes.data);
+      } catch (err: any) {
+        console.error('Error fetching analytics:', err);
+        setError(err.response?.data?.error || 'Failed to load analytics');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     window.scrollTo(0, 0);
-    setTimeout(() => setLoading(false), 500);
-  }, []);
+    fetchAnalytics();
+  }, [timeRange]);
 
   const maxRevenue = Math.max(...analytics.revenueByDay.map((d) => d.revenue));
 
@@ -98,7 +110,11 @@ export default function AnalyticsDashboard() {
 
         {loading ? (
           <p className="font-body text-silver text-center py-20">Loading analytics...</p>
-        ) : (
+        ) : error ? (
+          <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-6 text-center text-red-400">
+            {error}
+          </div>
+        ) : summary ? (
           <>
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
@@ -107,10 +123,10 @@ export default function AnalyticsDashboard() {
                   Total Revenue
                 </p>
                 <p className="font-display text-green-500 text-3xl font-bold">
-                  ₹{(analytics.revenue / 1000).toFixed(1)}K
+                  ₹{(summary.revenue / 1000).toFixed(1)}K
                 </p>
                 <p className="font-body text-silver/50 text-xs mt-2">
-                  +8.2% vs last {timeRange}
+                  {summary.orderCount} orders
                 </p>
               </div>
 
@@ -118,9 +134,9 @@ export default function AnalyticsDashboard() {
                 <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">
                   Total Orders
                 </p>
-                <p className="font-display text-blue-500 text-3xl font-bold">{analytics.orders}</p>
+                <p className="font-display text-blue-500 text-3xl font-bold">{summary.orderCount}</p>
                 <p className="font-body text-silver/50 text-xs mt-2">
-                  +5 new orders
+                  +{summary.newCustomers} new customers
                 </p>
               </div>
 
@@ -129,10 +145,10 @@ export default function AnalyticsDashboard() {
                   Customers
                 </p>
                 <p className="font-display text-purple-500 text-3xl font-bold">
-                  {analytics.customers}
+                  {summary.totalCustomers}
                 </p>
                 <p className="font-body text-silver/50 text-xs mt-2">
-                  +3 new customers
+                  Total unique
                 </p>
               </div>
 
@@ -141,7 +157,7 @@ export default function AnalyticsDashboard() {
                   Avg Order Value
                 </p>
                 <p className="font-display text-gold text-3xl font-bold">
-                  ₹{analytics.avgOrderValue.toLocaleString('en-IN')}
+                  ₹{summary.avgOrderValue.toLocaleString('en-IN')}
                 </p>
                 <p className="font-body text-silver/50 text-xs mt-2">
                   Per transaction
@@ -150,13 +166,13 @@ export default function AnalyticsDashboard() {
 
               <div className="glass-card p-6">
                 <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">
-                  Conversion Rate
+                  Avg Rating
                 </p>
                 <p className="font-display text-yellow-500 text-3xl font-bold">
-                  {analytics.conversionRate}%
+                  {summary.avgRating.toFixed(1)}★
                 </p>
                 <p className="font-body text-silver/50 text-xs mt-2">
-                  Store visitors
+                  From reviews
                 </p>
               </div>
             </div>
@@ -171,22 +187,31 @@ export default function AnalyticsDashboard() {
               </p>
 
               <div className="space-y-6">
-                {analytics.revenueByDay.map(({ date, revenue }) => (
-                  <div key={date}>
-                    <div className="flex justify-between mb-2">
-                      <span className="font-body text-silver text-xs">{date}</span>
-                      <span className="font-display text-gold font-bold">
-                        ₹{revenue.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-gold/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-gold to-gold-pale rounded-full transition-all duration-500"
-                        style={{ width: `${(revenue / maxRevenue) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                {revenueByDay.length > 0 ? (
+                  <>
+                    {(() => {
+                      const maxRevenue = Math.max(...revenueByDay.map((d) => d.revenue), 1);
+                      return revenueByDay.map(({ date, revenue, orders }) => (
+                        <div key={date}>
+                          <div className="flex justify-between mb-2">
+                            <span className="font-body text-silver text-xs">{date}</span>
+                            <span className="font-display text-gold font-bold text-sm">
+                              ₹{revenue.toLocaleString('en-IN')} ({orders} orders)
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-gold/10 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-gold to-yellow-400 rounded-full transition-all duration-500"
+                              style={{ width: `${(revenue / maxRevenue) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </>
+                ) : (
+                  <p className="text-silver/50 text-sm">No revenue data for this period</p>
+                )}
               </div>
             </div>
 
@@ -201,63 +226,179 @@ export default function AnalyticsDashboard() {
                 </p>
 
                 <div className="space-y-4">
-                  {analytics.topProducts.map((product, idx) => (
-                    <div key={idx} className="border-b border-gold/10 pb-4 last:border-0">
-                      <div className="flex justify-between mb-2">
-                        <p className="font-body text-ivory font-semibold text-sm">
-                          {idx + 1}. {product.name}
-                        </p>
-                        <span className="font-display text-gold font-bold">
-                          {product.sales} sales
-                        </span>
-                      </div>
-                      <p className="font-body text-silver text-xs">
-                        Revenue: ₹{product.revenue.toLocaleString('en-IN')}
-                      </p>
-                      <div className="w-full h-1.5 bg-gold/10 rounded-full mt-2 overflow-hidden">
-                        <div
-                          className="h-full bg-gold rounded-full"
-                          style={{ width: `${(product.sales / analytics.topProducts[0].sales) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                  {topProducts.length > 0 ? (
+                    <>
+                      {(() => {
+                        const maxSales = Math.max(...topProducts.map((p) => p.sales), 1);
+                        return topProducts.map((product, idx) => (
+                          <div key={idx} className="border-b border-gold/10 pb-4 last:border-0">
+                            <div className="flex justify-between mb-2">
+                              <p className="font-body text-ivory font-semibold text-sm">
+                                {idx + 1}. {product.name}
+                              </p>
+                              <span className="font-display text-gold font-bold text-sm">
+                                {product.sales} sales
+                              </span>
+                            </div>
+                            <p className="font-body text-silver text-xs">
+                              Revenue: ₹{product.revenue.toLocaleString('en-IN')} | Qty: {product.quantity}
+                            </p>
+                            <div className="w-full h-1.5 bg-gold/10 rounded-full mt-2 overflow-hidden">
+                              <div
+                                className="h-full bg-gold rounded-full"
+                                style={{ width: `${(product.sales / maxSales) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </>
+                  ) : (
+                    <p className="text-silver/50 text-sm">No product data available</p>
+                  )}
                 </div>
               </div>
 
-              {/* Customer Source */}
+              {/* Payment Methods */}
               <div className="glass-card p-8">
                 <p
                   className="font-body text-gold text-xs uppercase tracking-widest mb-6"
                   style={{ letterSpacing: '0.4em' }}
                 >
-                  Customer Source
+                  Payment Methods
                 </p>
 
                 <div className="space-y-5">
-                  {analytics.customerSource.map(({ source, count }, idx) => {
-                    const total = analytics.customerSource.reduce((sum, s) => sum + s.count, 0);
-                    const percentage = ((count / total) * 100).toFixed(0);
-
-                    return (
-                      <div key={idx}>
-                        <div className="flex justify-between mb-2">
-                          <p className="font-body text-ivory text-sm">{source}</p>
-                          <span className="font-display text-gold font-bold">
-                            {count} ({percentage}%)
-                          </span>
-                        </div>
-                        <div className="w-full h-2 bg-gold/10 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gold rounded-full"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {paymentMethods.length > 0 ? (
+                    <>
+                      {(() => {
+                        const total = paymentMethods.reduce((sum, p) => sum + p.count, 0);
+                        return paymentMethods.map(({ _id, count, revenue }, idx) => {
+                          const percentage = ((count / total) * 100).toFixed(0);
+                          return (
+                            <div key={idx}>
+                              <div className="flex justify-between mb-2">
+                                <p className="font-body text-ivory text-sm capitalize">
+                                  {_id === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
+                                </p>
+                                <span className="font-display text-gold font-bold text-sm">
+                                  {count} ({percentage}%)
+                                </span>
+                              </div>
+                              <p className="font-body text-silver text-xs mb-2">
+                                Revenue: ₹{revenue.toLocaleString('en-IN')}
+                              </p>
+                              <div className="w-full h-2 bg-gold/10 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-blue-500 rounded-full"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </>
+                  ) : (
+                    <p className="text-silver/50 text-sm">No payment data available</p>
+                  )}
                 </div>
               </div>
+            </div>
+
+            {/* Customer & Review Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+              {/* Customer Metrics */}
+              {customerMetrics && (
+                <div className="glass-card p-8">
+                  <p
+                    className="font-body text-gold text-xs uppercase tracking-widest mb-6"
+                    style={{ letterSpacing: '0.4em' }}
+                  >
+                    Customer Metrics
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="font-body text-silver text-xs uppercase mb-1">New Customers</p>
+                      <p className="font-display text-3xl text-gold font-bold">
+                        {customerMetrics.newCustomers}
+                      </p>
+                    </div>
+                    <div className="border-t border-gold/10 pt-4">
+                      <p className="font-body text-silver text-xs uppercase mb-1">Repeat Customers</p>
+                      <p className="font-display text-3xl text-green-500 font-bold">
+                        {customerMetrics.repeatCustomers}
+                      </p>
+                      <p className="font-body text-silver text-xs mt-1">
+                        Repeat Rate: {customerMetrics.repeatRate}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Review Stats */}
+              {reviewStats && (
+                <div className="glass-card p-8">
+                  <p
+                    className="font-body text-gold text-xs uppercase tracking-widest mb-6"
+                    style={{ letterSpacing: '0.4em' }}
+                  >
+                    Review Statistics
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="font-body text-silver text-xs uppercase mb-1">Avg Rating</p>
+                      <p className="font-display text-3xl text-yellow-500 font-bold">
+                        {reviewStats.averageRating}★
+                      </p>
+                    </div>
+                    <div className="border-t border-gold/10 pt-4 space-y-2">
+                      <div className="flex justify-between text-xs font-body">
+                        <span className="text-silver">Approved:</span>
+                        <span className="text-emerald-400 font-semibold">{reviewStats.totalReviews}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-body">
+                        <span className="text-silver">Pending:</span>
+                        <span className="text-yellow-400 font-semibold">{reviewStats.pendingReviews}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-body">
+                        <span className="text-silver">Rejected:</span>
+                        <span className="text-red-400 font-semibold">{reviewStats.rejectedReviews}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Quick Stats */}
+              {summary && (
+                <div className="glass-card p-8">
+                  <p
+                    className="font-body text-gold text-xs uppercase tracking-widest mb-6"
+                    style={{ letterSpacing: '0.4em' }}
+                  >
+                    Quick Stats
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="font-body text-silver text-xs uppercase mb-1">Completed Orders</p>
+                      <p className="font-display text-3xl text-green-500 font-bold">
+                        {summary.completedOrders}
+                      </p>
+                    </div>
+                    <div className="border-t border-gold/10 pt-4">
+                      <p className="font-body text-silver text-xs uppercase mb-1">Return Rate</p>
+                      <p className="font-display text-2xl text-red-400 font-bold">
+                        {summary.returnRate}%
+                      </p>
+                      <p className="font-body text-silver text-xs mt-1">
+                        Pending: {summary.pendingOrders}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Export Section */}

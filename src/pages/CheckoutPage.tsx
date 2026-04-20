@@ -1,105 +1,139 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { products } from '../data/products';
+import { useNavigate } from 'react-router-dom';
+import Breadcrumbs from '../components/Breadcrumbs';
+import { useCart } from '../hooks/useCart';
+import { useAuth } from '../hooks/useAuth';
 import api from '../utils/api';
 import { loadRazorpayScript } from '../utils/razorpay';
-import TrustBadges from '../components/TrustBadges';
 import type { PaymentMethod } from '../types/order';
 
 const WHATSAPP_NUMBER = '917997000166';
 
-/* ─── WhatsApp icon ──────────────────────────────────────────────────────── */
-function WhatsAppIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-    </svg>
-  );
-}
-
 export default function CheckoutPage() {
-  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { cart, totalPrice, clearCart } = useCart();
+  const { user, token } = useAuth();
 
-  const product = products.find((p) => p.id === id);
-
-  const [name,          setName]          = useState('');
-  const [phone,         setPhone]         = useState('');
-  const [address,       setAddress]       = useState('');
-  const [quantity,      setQuantity]      = useState(1);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const total = product ? product.price * quantity : 0;
+  const itemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const taxAmount = Math.round(totalPrice * 0.18);
+  const grandTotal = totalPrice + taxAmount;
 
-  useEffect(() => { window.scrollTo(0, 0); }, []);
+  // Auto-populate user info
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    if (user) {
+      setPhone(user.phone);
+      setName(user.name || '');
+    }
+  }, [user]);
 
-  /* ── Validation ──────────────────────────────────────────────────────── */
+  // Redirect if cart is empty
+  useEffect(() => {
+    if (cart && cart.items.length === 0) {
+      navigate('/cart');
+    }
+  }, [cart, navigate]);
+
   const validate = (): string | null => {
-    if (!name.trim())    return 'Please enter your full name.';
+    if (!name.trim()) return 'Please enter your full name.';
     if (!phone.trim() || !/^\d{10}$/.test(phone.replace(/[\s-]/g, '')))
       return 'Please enter a valid 10-digit mobile number.';
     if (!address.trim()) return 'Please enter your delivery address.';
+    if (cart?.items.length === 0) return 'Your cart is empty.';
     return null;
   };
 
-  /* ── Helpers ──────────────────────────────────────────────────────────── */
+  const createOrder = async (razorpay_order_id?: string) => {
+    try {
+      // Create individual orders for each product in cart
+      const orderPromises = cart!.items.map((item) =>
+        api.post(
+          '/order',
+          {
+            name,
+            phone,
+            address,
+            product: item.productName,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+            payment_method: paymentMethod,
+            razorpay_order_id: razorpay_order_id ?? null,
+            payment_status: razorpay_order_id ? 'paid' : 'pending',
+            order_status: 'pending',
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        )
+      );
+
+      await Promise.all(orderPromises);
+      return true;
+    } catch (err) {
+      throw err;
+    }
+  };
+
   const openWhatsApp = (razorpayId?: string) => {
+    const itemsList = cart!.items
+      .map((item) => `• ${item.productName} (${item.quantity}x ₹${item.price})`)
+      .join('\n');
+
     const msg = encodeURIComponent(
       `New Order 🛒\n\n` +
-      `Product: ${product?.name} (${product?.category})\n` +
+      `Items:\n${itemsList}\n\n` +
       `Name: ${name}\n` +
       `Phone: ${phone}\n` +
-      `Address: ${address}\n` +
-      `Qty: ${quantity} × ₹${product?.price}\n` +
-      `Total: ₹${total.toLocaleString('en-IN')}\n` +
+      `Address: ${address}\n\n` +
+      `Subtotal: ₹${totalPrice.toLocaleString('en-IN')}\n` +
+      `Tax (18%): ₹${taxAmount.toLocaleString('en-IN')}\n` +
+      `Total: ₹${grandTotal.toLocaleString('en-IN')}\n\n` +
       `Payment: ${paymentMethod === 'cod' ? 'Cash on Delivery' : `Online Paid (Ref: ${razorpayId || 'N/A'})`}`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
   };
 
-  const submitOrder = (razorpay_order_id?: string) =>
-    api.post('/order', {
-      name,
-      phone,
-      address,
-      product:           product?.name,
-      productId:         product?.id,
-      quantity,
-      price:             product?.price,
-      payment_method:    paymentMethod,
-      razorpay_order_id: razorpay_order_id ?? null,
-      payment_status:    razorpay_order_id ? 'paid' : 'pending',
-      order_status:      'pending',
-    });
-
-  const goToSuccess = () =>
-    navigate('/order-success', {
-      state: { product, name, phone, address, quantity, total, paymentMethod },
-    });
-
-  /* ── COD flow ────────────────────────────────────────────────────────── */
   const handleCOD = async () => {
     const err = validate();
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
-      await submitOrder();
+      await createOrder();
       openWhatsApp();
-      goToSuccess();
-    } catch {
-      setError('Failed to place order. Please check your connection and try again.');
+      await clearCart();
+      navigate('/order-success', {
+        state: { items: cart?.items, name, phone, address, total: grandTotal },
+      });
+    } catch (err: any) {
+      setError('Failed to place order. Please try again.');
+      console.error('Order error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  /* ── Razorpay flow ───────────────────────────────────────────────────── */
   const handleRazorpay = async () => {
     const err = validate();
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -107,17 +141,19 @@ export default function CheckoutPage() {
       const loaded = await loadRazorpayScript();
       if (!loaded) throw new Error('Failed to load Razorpay checkout. Please try again.');
 
-      const { data } = await api.post('/razorpay/create-order', { amount: total * 100 });
+      const { data } = await api.post('/razorpay/create-order', {
+        amount: grandTotal * 100,
+      });
 
       const options = {
-        key:         import.meta.env.VITE_RAZORPAY_KEY_ID || '',
-        amount:      data.amount,
-        currency:    'INR',
-        name:        'Phone Palace',
-        description: product?.name,
-        order_id:    data.id,
-        prefill:     { name, contact: phone },
-        theme:       { color: '#C9A84C' },
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
+        amount: data.amount,
+        currency: 'INR',
+        name: 'Phone Palace',
+        description: `${itemCount} items`,
+        order_id: data.id,
+        prefill: { name, contact: phone },
+        theme: { color: '#C9A84C' },
         modal: {
           ondismiss: () => setLoading(false),
         },
@@ -127,12 +163,34 @@ export default function CheckoutPage() {
           razorpay_signature: string;
         }) => {
           try {
-            await api.post('/razorpay/verify', response);
-            await submitOrder(response.razorpay_order_id);
+            // Verify payment signature
+            const verifyRes = await api.post('/razorpay/verify', response);
+            if (!verifyRes.data.success) {
+              throw new Error('Payment verification failed');
+            }
+
+            // Create orders with payment details
+            await createOrder(response.razorpay_order_id);
+            
+            // Send confirmation via WhatsApp
             openWhatsApp(response.razorpay_order_id);
-            goToSuccess();
-          } catch {
-            setError('Payment received but order failed. Please contact us on WhatsApp.');
+            
+            // Clear cart and redirect
+            await clearCart();
+            navigate('/order-success', {
+              state: { 
+                items: cart?.items, 
+                name, 
+                phone, 
+                address, 
+                total: grandTotal,
+                paymentMethod: 'online',
+                razorpayOrderId: response.razorpay_order_id,
+              },
+            });
+          } catch (err) {
+            setError('Payment verification failed. Please contact our WhatsApp support for assistance.');
+            console.error('Razorpay verification error:', err);
             setLoading(false);
           }
         },
@@ -140,10 +198,13 @@ export default function CheckoutPage() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', () => {
-        setError('Payment failed. Please retry or choose Cash on Delivery.');
+      
+      rzp.on('payment.failed', (failureResponse: any) => {
+        const errorMsg = failureResponse?.error?.description || 'Payment failed. Please try again.';
+        setError(`❌ ${errorMsg}\n\nYou can try again or choose Cash on Delivery.`);
         setLoading(false);
       });
+      
       rzp.open();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Payment initiation failed. Please try again.');
@@ -157,23 +218,16 @@ export default function CheckoutPage() {
     else handleRazorpay();
   };
 
-  /* ── Not found ───────────────────────────────────────────────────────── */
-  if (!product) {
-    return (
-      <main className="pt-40 pb-24 px-6 text-center min-h-screen flex flex-col items-center justify-center">
-        <p className="font-body text-silver mb-8">Product not found.</p>
-        <button onClick={() => navigate('/products')} className="btn-gold">
-          View All Products
-        </button>
-      </main>
-    );
+  if (!cart || cart.items.length === 0) {
+    return null;
   }
 
   return (
     <main className="pt-24 pb-20 min-h-screen px-6">
-      <div className="max-w-2xl mx-auto">
+      <Breadcrumbs />
 
-        {/* ── Header ───────────────────────────────────────────────────── */}
+      <div className="max-w-5xl mx-auto mt-8">
+        {/* Header */}
         <div className="text-center mb-12">
           <p
             className="font-body text-gold text-xs uppercase tracking-widest mb-3"
@@ -190,97 +244,192 @@ export default function CheckoutPage() {
           <div className="gold-line mt-5 mx-auto" style={{ width: '60px' }} />
         </div>
 
-        {/* ── Product summary card ──────────────────────────────────────── */}
-        <div className="glass-card p-6 mb-10 flex gap-5 items-center">
-          <div className="w-20 h-20 flex-shrink-0 overflow-hidden">
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p
-              className="font-body text-gold text-xs uppercase tracking-widest"
-              style={{ letterSpacing: '0.25em' }}
-            >
-              {product.category}
-            </p>
-            <h2
-              className="font-display text-ivory text-lg mt-1 truncate"
-              style={{ fontStyle: 'italic', fontWeight: 700 }}
-            >
-              {product.name}
-            </h2>
-            <p className="font-body text-gold text-sm font-semibold mt-1">
-              ₹{product.price.toLocaleString('en-IN')} each
-            </p>
-          </div>
-          <button
-            onClick={() => navigate(`/product/${product.id}`)}
-            className="font-body text-silver text-xs uppercase tracking-widest hover:text-gold transition-colors flex-shrink-0"
-            style={{ letterSpacing: '0.15em' }}
-          >
-            Change
-          </button>
-        </div>
-
-        {/* Trust Badges */}
-        <div className="mb-12">
-          <p
-            className="font-body text-gold text-xs uppercase tracking-widest text-center mb-8"
-            style={{ letterSpacing: '0.4em' }}
-          >
-            Shop with Confidence
-          </p>
-          <TrustBadges
-            types={['ssl', 'secure', 'authentic', 'guarantee']}
-            layout="grid"
-          />
-        </div>
-
-        {/* ── Form ─────────────────────────────────────────────────────── */}
-        <form onSubmit={handleSubmit} noValidate>
-
-          {/* Personal details */}
-          <div className="space-y-8 mb-8">
-            <p
-              className="font-body text-silver text-xs uppercase tracking-widest"
-              style={{ letterSpacing: '0.3em' }}
-            >
-              Your Details
-            </p>
-
-            <div>
-              <label
-                htmlFor="name"
-                className="block font-body text-silver text-xs uppercase tracking-widest mb-3"
-              >
-                Full Name *
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your full name"
-                className="input-luxury"
-                autoComplete="name"
-              />
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Delivery Information */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Items Summary */}
+            <div className="glass-card p-6">
+              <h2 className="text-gold font-semibold mb-4">Order Items ({itemCount})</h2>
+              <div className="space-y-3 max-h-48 overflow-y-auto">
+                {cart.items.map((item) => (
+                  <div key={item._id} className="flex justify-between items-center pb-3 border-b border-slate-700">
+                    <div>
+                      <p className="text-silver font-medium">{item.productName}</p>
+                      {item.variant && (
+                        <p className="text-emerald-400 text-xs">{item.variant.label}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-silver text-sm">
+                        ₹{item.price} × {item.quantity}
+                      </p>
+                      <p className="text-gold font-semibold">
+                        ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div>
-              <label
-                htmlFor="phone"
-                className="block font-body text-silver text-xs uppercase tracking-widest mb-3"
+            {/* Delivery Address */}
+            <div className="glass-card p-6">
+              <h2 className="text-gold font-semibold mb-4">Delivery Address</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-emerald-300 mb-2">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-800 border border-emerald-500/30 rounded text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-emerald-300 mb-2">
+                    Mobile Number
+                  </label>
+                  <div className="flex">
+                    <span className="inline-flex items-center px-4 bg-slate-800 border border-r-0 border-emerald-500/30 rounded-l text-emerald-400 font-medium">
+                      +91
+                    </span>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      value={phone}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setPhone(value);
+                      }}
+                      className="flex-1 px-4 py-3 bg-slate-800 border border-emerald-500/30 rounded-r text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-emerald-300 mb-2">
+                    Delivery Address
+                  </label>
+                  <textarea
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Street address, city, state, postal code"
+                    className="w-full px-4 py-3 bg-slate-800 border border-emerald-500/30 rounded text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    rows={4}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Method */}
+            <div className="glass-card p-6">
+              <h2 className="text-gold font-semibold mb-4">Payment Method</h2>
+              <div className="space-y-3">
+                <label className="flex items-center p-4 border border-gold/30 rounded cursor-pointer hover:bg-gold/5 transition-colors">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="cod"
+                    checked={paymentMethod === 'cod'}
+                    onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                    className="w-4 h-4"
+                  />
+                  <div className="ml-4">
+                    <p className="text-silver font-semibold">Cash on Delivery</p>
+                    <p className="text-slate-400 text-sm">Pay when you receive the order</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center p-4 border border-gold/30 rounded cursor-pointer hover:bg-gold/5 transition-colors">
+                  <input
+                    type="radio"
+                    name="payment"
+                    value="online"
+                    checked={paymentMethod === 'online'}
+                    onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                    className="w-4 h-4"
+                  />
+                  <div className="ml-4">
+                    <p className="text-silver font-semibold">Online Payment</p>
+                    <p className="text-slate-400 text-sm">Credit/Debit Card, UPI, etc.</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Order Summary Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="glass-card p-6 sticky top-24 space-y-6">
+              <h2 className="text-gold font-semibold">Order Summary</h2>
+
+              <div className="space-y-3 text-sm pb-4 border-b border-gold/20">
+                <div className="flex justify-between text-slate-300">
+                  <span>Subtotal ({itemCount} items)</span>
+                  <span>₹{totalPrice.toLocaleString('en-IN')}</span>
+                </div>
+
+                <div className="flex justify-between text-slate-300">
+                  <span>Shipping</span>
+                  <span className="text-emerald-400">FREE</span>
+                </div>
+
+                <div className="flex justify-between text-slate-300">
+                  <span>Tax (18%)</span>
+                  <span>₹{taxAmount.toLocaleString('en-IN')}</span>
+                </div>
+
+                <div className="flex justify-between text-lg font-semibold">
+                  <span className="text-ivory">Total</span>
+                  <span className="text-gold">₹{grandTotal.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              {/* Error message */}
+              {error && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-300 text-xs">
+                  {error}
+                </div>
+              )}
+
+              {/* Submit button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-gold to-gold/80 hover:from-gold/90 hover:to-gold disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-carbon font-semibold py-3 px-6 rounded transition-all"
               >
-                Phone Number *
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                {loading
+                  ? 'Processing...'
+                  : paymentMethod === 'cod'
+                  ? 'Place Order'
+                  : 'Pay Now'}
+              </button>
+
+              {/* Trust badges */}
+              <div className="space-y-2 text-xs text-slate-400 pt-4 border-t border-gold/20">
+                <div className="flex items-center gap-2">
+                  <span>✅</span>
+                  <span>100% Authentic Products</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>🔒</span>
+                  <span>Secure Payment</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>💰</span>
+                  <span>30-Day Money Back</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </main>
+  );
+}
                 placeholder="10-digit mobile number"
                 className="input-luxury"
                 autoComplete="tel"

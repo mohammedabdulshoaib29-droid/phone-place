@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import CartDropdown from './CartDropdown';
+import NotificationBell from './NotificationBell';
 
 const navLinks = [
   { label: 'Shop',     to: '/products', isRoute: true },
@@ -8,9 +11,12 @@ const navLinks = [
   { label: 'FAQ',      to: '/faq',      isRoute: true },
   { label: 'My Orders', to: '/my-orders', isRoute: true },
   { label: 'Referral', to: '/referral', isRoute: true },
+  { label: 'Profile',  to: '/profile',  isRoute: true },
 ];
 
 export default function Navbar() {
+  const navigate = useNavigate();
+  const { user, token, logout } = useAuth();
   const [scrolled,  setScrolled]  = useState(false);
   const [menuOpen,  setMenuOpen]  = useState(false);
 
@@ -22,6 +28,12 @@ export default function Navbar() {
 
   const linkClass =
     'font-body text-silver text-xs tracking-widest uppercase hover:text-gold transition-colors duration-300';
+
+  const handleLogout = () => {
+    logout();
+    setMenuOpen(false);
+    navigate('/');
+  };
 
   return (
     <nav
@@ -57,6 +69,39 @@ export default function Navbar() {
           <Link to="/admin" className={linkClass} style={{ letterSpacing: '0.22em' }}>
             Admin
           </Link>
+
+          {/* Cart icon */}
+          {token && <CartDropdown />}
+
+          {/* Notification bell */}
+          {token && <NotificationBell />}
+
+          {/* Auth buttons */}
+          <div className="flex items-center gap-4 pl-4 border-l border-gold/20">
+            {token && user ? (
+              <>
+                <Link to="/profile" className="text-xs text-silver hover:text-gold transition-colors cursor-pointer">
+                  <div className="font-semibold">{user.name || 'User'}</div>
+                  <div className="text-gold/70">+91{user.phone}</div>
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="text-xs font-semibold text-gold hover:text-gold/70 transition-colors"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className={`${linkClass} text-gold`}>
+                  Login
+                </Link>
+                <Link to="/register" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300">
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Mobile hamburger */}
@@ -105,6 +150,54 @@ export default function Navbar() {
           >
             Admin
           </Link>
+
+          {/* Mobile Cart */}
+          {token && (
+            <Link
+              to="/cart"
+              onClick={() => setMenuOpen(false)}
+              className={`${linkClass} text-emerald-400 py-2`}
+              style={{ letterSpacing: '0.22em' }}
+            >
+              🛒 View Cart
+            </Link>
+          )}
+
+          {/* Mobile Auth */}
+          <div className="border-t border-gold/20 pt-6 mt-4">
+            {token && user ? (
+              <>
+                <div className="text-sm text-silver mb-4">
+                  <div className="font-semibold">{user.name || 'User'}</div>
+                  <div className="text-gold/70">+91{user.phone}</div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-sm font-semibold text-gold hover:text-gold/70 py-2"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className={`${linkClass} block py-2`}
+                  style={{ letterSpacing: '0.22em' }}
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setMenuOpen(false)}
+                  className="block py-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 uppercase tracking-wider"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       )}
     </nav>

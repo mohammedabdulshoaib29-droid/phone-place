@@ -7,6 +7,13 @@ const path      = require('path');
 const fs        = require('fs');
 const orderRoutes    = require('./routes/orders');
 const razorpayRoutes = require('./routes/razorpay');
+const authRoutes     = require('./routes/auth');
+const cartRoutes     = require('./routes/cart');
+const returnsRoutes  = require('./routes/returns');
+const notificationRoutes = require('./routes/notifications');
+const reviewRoutes   = require('./routes/reviews');
+const adminRoutes    = require('./routes/admin');
+const analyticsRoutes = require('./routes/analytics');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -35,6 +42,13 @@ app.use(express.json());
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api', orderRoutes);
 app.use('/api/razorpay', razorpayRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api', cartRoutes);
+app.use('/api', returnsRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api', adminRoutes);
+app.use('/api', analyticsRoutes);
 
 const distPath = path.join(__dirname, '..', 'dist');
 const indexPath = path.join(distPath, 'index.html');

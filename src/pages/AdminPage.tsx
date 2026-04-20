@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Breadcrumbs from '../components/Breadcrumbs';
+import ReviewModerationPanel from '../components/ReviewModerationPanel';
 import api from '../utils/api';
 import type { Order, OrderStatus } from '../types/order';
 
@@ -309,6 +310,11 @@ export default function AdminPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Review Moderation Section */}
+      <div className="max-w-7xl mx-auto mt-16">
+        <ReviewModerationPanel adminPin={ADMIN_PIN} />
       </div>
     </main>
   );
