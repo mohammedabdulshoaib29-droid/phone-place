@@ -180,7 +180,8 @@ export default function ProductCard({ product, delay = 0 }: Props) {
           </div>
 
           {/* Actions */}
-          <d{token ? (
+          <div className="flex gap-3">
+            {token ? (
               <AddToCartButton
                 productId={product.id}
                 productName={product.name}
@@ -197,8 +198,7 @@ export default function ProductCard({ product, delay = 0 }: Props) {
               >
                 Login to Buy
               </button>
-            )}w
-            </button>
+            )}
             <button
               onClick={() => navigate(`/product/${product.id}`)}
               className="font-body text-silver text-xs uppercase tracking-widest hover:text-gold transition-colors duration-300 flex-1"
