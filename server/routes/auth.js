@@ -5,6 +5,7 @@ const router = express.Router();
 const User = require('../models/User');
 const OTP = require('../models/OTP');
 const { generateToken, verifyToken } = require('../middleware/auth');
+const nodemailer = require('nodemailer');
 
 // Helper: Generate 6-digit OTP
 const generateOTP = () => {
@@ -16,13 +17,55 @@ const generateReferralCode = () => {
   return 'REF' + crypto.randomBytes(4).toString('hex').toUpperCase();
 };
 
+// Email transporter (using Gmail or your email service)
+const emailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER || 'phonepalace.noreply@gmail.com',
+    pass: process.env.EMAIL_PASSWORD || 'your-app-password-here',
+  },
+});
+
+// Helper: Send OTP email
+const sendOTPEmail = async (email, phone, otp) => {
+  try {
+    if (!email) return true; // Skip if no email available
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'phonepalace.noreply@gmail.com',
+      to: email,
+      subject: '🔐 Your Phone Palace OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1a1a1a;">Your OTP for Phone Palace</h2>
+          <p>Hi there!</p>
+          <p>Your One-Time Password (OTP) for phone number <strong>${phone}</strong> is:</p>
+          <h1 style="background: linear-gradient(135deg, #d4af37, #ffd700); color: #000; padding: 20px; text-align: center; border-radius: 8px; letter-spacing: 3px; font-size: 36px;">
+            ${otp}
+          </h1>
+          <p style="color: #666;">This OTP is valid for <strong>10 minutes</strong> only.</p>
+          <p style="color: #666;">If you didn't request this, please ignore this email.</p>
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+          <p style="color: #999; font-size: 12px;">Phone Palace • Premium Mobile Accessories • Hyderabad</p>
+        </div>
+      `,
+    };
+
+    await emailTransporter.sendMail(mailOptions);
+    return true;
+  } catch (err) {
+    console.error('Email sending error:', err.message);
+    return false;
+  }
+};
+
 /* ─────────────────────────────────────────────────────────────────────────
    POST /auth/send-otp
-   Send OTP to phone number (development uses 123456 for testing)
+   Send OTP to email
    ───────────────────────────────────────────────────────────────────────── */
 router.post('/send-otp', async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { phone, email } = req.body;
 
     if (!phone || !/^\d{10}$/.test(phone)) {
       return res.status(400).json({
@@ -34,8 +77,8 @@ router.post('/send-otp', async (req, res) => {
     // Delete any existing OTPs for this phone
     await OTP.deleteMany({ phone });
 
-    // Generate OTP (use 123456 for development/testing)
-    const otp = process.env.NODE_ENV === 'production' ? generateOTP() : '123456';
+    // Generate OTP
+    const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Create OTP record
@@ -45,14 +88,23 @@ router.post('/send-otp', async (req, res) => {
       expiresAt,
     });
 
-    // In production, send via SMS API (Twilio, AWS SNS, etc.)
-    // For now, return OTP in development mode only
+    // Try to send email if provided
+    if (email) {
+      const emailSent = await sendOTPEmail(email, phone, otp);
+      if (!emailSent) {
+        console.warn(`Email not sent, but OTP saved: ${otp}`);
+      }
+    }
+
+    // Log OTP for debugging
     console.log(`📱 OTP for ${phone}: ${otp}`);
 
     return res.json({
       success: true,
-      message: 'OTP sent to your phone number.',
-      // In production, remove this line:
+      message: email 
+        ? `OTP sent to ${email}. Check your email (including spam folder).`
+        : 'OTP generated. Check your email or contact support.',
+      // Dev mode only:
       otp: process.env.NODE_ENV !== 'production' ? otp : undefined,
     });
   } catch (err) {

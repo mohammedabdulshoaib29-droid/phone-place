@@ -10,6 +10,7 @@ export default function LoginPage() {
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -40,8 +41,13 @@ export default function LoginPage() {
       return;
     }
 
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address to receive OTP.');
+      return;
+    }
+
     try {
-      await sendOTP(cleanPhone);
+      await sendOTP(cleanPhone, email);
       setPhone(cleanPhone);
       setStep('otp');
       setOtpSent(true);
@@ -74,7 +80,7 @@ export default function LoginPage() {
     setError('');
     setOtp('');
     try {
-      await sendOTP(phone);
+      await sendOTP(phone, email);
       setTimeLeft(120);
     } catch (err: any) {
       setError(err.message || 'Failed to resend OTP');
@@ -134,13 +140,29 @@ export default function LoginPage() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-slate-400">
-                  We'll send a 6-digit OTP to verify your number
+                  10-digit number without country code
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-emerald-300 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-800 border border-emerald-500/30 rounded text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  We'll send your OTP here
                 </p>
               </div>
 
               <button
                 type="submit"
-                disabled={loading || phone.length !== 10}
+                disabled={loading || phone.length !== 10 || !email}
                 className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold py-3 rounded transition-all"
               >
                 {loading ? 'Sending OTP...' : 'Send OTP'}
@@ -168,7 +190,7 @@ export default function LoginPage() {
                   className="w-full px-4 py-3 bg-slate-800 border border-emerald-500/30 rounded text-white text-center text-2xl tracking-widest placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
                 />
                 <p className="mt-2 text-xs text-slate-400">
-                  Sent to +91{phone}
+                  Sent to {email}
                 </p>
               </div>
 

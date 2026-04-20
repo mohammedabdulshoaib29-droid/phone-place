@@ -39,8 +39,13 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address to receive OTP.');
+      return;
+    }
+
     try {
-      await sendOTP(cleanPhone);
+      await sendOTP(cleanPhone, email);
       setPhone(cleanPhone);
       setStep('otp');
       setTimeLeft(120); // 2 minutes countdown
@@ -89,7 +94,7 @@ export default function RegisterPage() {
     setError('');
     setOtp('');
     try {
-      await sendOTP(phone);
+      await sendOTP(phone, email);
       setTimeLeft(120);
     } catch (err: any) {
       setError(err.message || 'Failed to resend OTP');

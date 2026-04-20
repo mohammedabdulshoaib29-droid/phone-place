@@ -14,7 +14,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: (phone: string, code: string) => Promise<void>;
-  sendOTP: (phone: string) => Promise<void>;
+  sendOTP: (phone: string, email?: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
 }
@@ -55,11 +55,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const sendOTP = async (phone: string) => {
+  const sendOTP = async (phone: string, email?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.post('/auth/send-otp', { phone });
+      const response = await api.post('/auth/send-otp', { phone, email });
       if (!response.data.success) {
         setError(response.data.error || 'Failed to send OTP');
       }
