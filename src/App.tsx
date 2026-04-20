@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import AuthGuard from './components/AuthGuard';
@@ -11,6 +11,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AdminPage from './pages/AdminPage';
 import AboutUsPage from './pages/AboutUsPage';
+import ContactPage from './pages/ContactPage';
 import FAQPage from './pages/FAQPage';
 import PoliciesPage from './pages/PoliciesPage';
 import OrderTrackingPage from './pages/OrderTrackingPage';
@@ -19,38 +20,77 @@ import NotificationSettingsPage from './pages/NotificationSettingsPage';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import ReferralProgram from './pages/ReferralProgram';
 import CouponManager from './pages/CouponManager';
+import RepairBookingPage from './pages/RepairBookingPage';
+import RepairTrackingPage from './pages/RepairTrackingPage';
+import AccountDashboardPage from './pages/AccountDashboardPage';
+import UserProfilePage from './pages/UserProfilePage';
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Auth Routes (no layout) */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Main Routes with Layout */}
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/book-repair" element={<RepairBookingPage />} />
+            <Route path="/track-repair" element={<RepairTrackingPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
-            
-            {/* Protected Routes - require auth */}
-            <Route path="/checkout/:id" element={
-              <AuthGuard><CheckoutPage /></AuthGuard>
-            } />
-            <Route path="/order-success" element={
-              <AuthGuard><OrderSuccessPage /></AuthGuard>
-            } />
-            <Route path="/my-orders" element={
-              <AuthGuard><OrderHistoryPage /></AuthGuard>
-            } />
-            <Route path="/track/:orderId" element={
-              <AuthGuard><OrderTrackingPage /></AuthGuard>
-            } />
-            
-            {/* Public Routes */}
+
+            <Route
+              path="/checkout/:id"
+              element={
+                <AuthGuard>
+                  <CheckoutPage />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/order-success"
+              element={
+                <AuthGuard>
+                  <OrderSuccessPage />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/my-orders"
+              element={
+                <AuthGuard>
+                  <OrderHistoryPage />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/account"
+              element={
+                <AuthGuard>
+                  <AccountDashboardPage />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <AuthGuard>
+                  <UserProfilePage />
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/track/:orderId"
+              element={
+                <AuthGuard>
+                  <OrderTrackingPage />
+                </AuthGuard>
+              }
+            />
+
             <Route path="/about" element={<AboutUsPage />} />
+            <Route path="/contact" element={<ContactPage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/policies" element={<PoliciesPage />} />
             <Route path="/notifications" element={<NotificationSettingsPage />} />

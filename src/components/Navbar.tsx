@@ -3,19 +3,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 const navLinks = [
-  { label: 'Shop',     to: '/products', isRoute: true },
-  { label: 'Coupons',  to: '/coupons',  isRoute: true },
-  { label: 'About',    to: '/about',    isRoute: true },
-  { label: 'FAQ',      to: '/faq',      isRoute: true },
-  { label: 'My Orders', to: '/my-orders', isRoute: true },
-  { label: 'Referral', to: '/referral', isRoute: true },
+  { label: 'Book Repair', to: '/book-repair' },
+  { label: 'Track Repair', to: '/track-repair' },
+  { label: 'Shop', to: '/products' },
+  { label: 'Contact', to: '/contact' },
+  { label: 'FAQ', to: '/faq' },
+  { label: 'My Account', to: '/account' },
 ];
 
 export default function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [scrolled,  setScrolled]  = useState(false);
-  const [menuOpen,  setMenuOpen]  = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 60);
@@ -35,7 +35,6 @@ export default function Navbar() {
       }`}
     >
       <div className="flex items-center justify-between h-full px-8 md:px-16">
-        {/* Brand */}
         <Link
           to="/"
           className="font-display text-ivory text-sm uppercase no-underline"
@@ -44,42 +43,26 @@ export default function Navbar() {
           Phone Palace
         </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-10">
-          {navLinks.map(({ label, to, isRoute }) =>
-            isRoute ? (
-              <Link key={label} to={to} className={linkClass} style={{ letterSpacing: '0.22em' }}>
-                {label}
-              </Link>
-            ) : (
-              <a key={label} href={to} className={linkClass} style={{ letterSpacing: '0.22em' }}>
-                {label}
-              </a>
-            )
-          )}
+        <div className="hidden md:flex items-center gap-8">
+          {navLinks.map(({ label, to }) => (
+            <Link key={label} to={to} className={linkClass} style={{ letterSpacing: '0.22em' }}>
+              {label}
+            </Link>
+          ))}
           <Link to="/admin" className={linkClass} style={{ letterSpacing: '0.22em' }}>
             Admin
           </Link>
-          
-          {/* Auth buttons */}
+
           {user ? (
             <div className="flex items-center gap-4 border-l border-gold/30 pl-6">
               <span className="text-gold text-xs">Hi, {user.phone}</span>
-              <button
-                onClick={logout}
-                className={linkClass}
-                style={{ letterSpacing: '0.22em' }}
-              >
+              <button onClick={logout} className={linkClass} style={{ letterSpacing: '0.22em' }}>
                 Logout
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-4 border-l border-gold/30 pl-6">
-              <button
-                onClick={() => navigate('/login')}
-                className={linkClass}
-                style={{ letterSpacing: '0.22em' }}
-              >
+              <button onClick={() => navigate('/login')} className={linkClass} style={{ letterSpacing: '0.22em' }}>
                 Login
               </button>
               <button
@@ -93,10 +76,9 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Mobile hamburger */}
         <button
           className="md:hidden flex flex-col gap-[5px] cursor-pointer p-1"
-          onClick={() => setMenuOpen((o) => !o)}
+          onClick={() => setMenuOpen((open) => !open)}
           aria-label="Toggle navigation menu"
           aria-expanded={menuOpen}
         >
@@ -105,32 +87,19 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile drawer */}
       {menuOpen && (
         <div className="md:hidden bg-charcoal/96 backdrop-blur-xl border-b border-gold/10 py-8 px-8 flex flex-col gap-7">
-          {navLinks.map(({ label, to, isRoute }) =>
-            isRoute ? (
-              <Link
-                key={label}
-                to={to}
-                onClick={() => setMenuOpen(false)}
-                className={linkClass}
-                style={{ letterSpacing: '0.22em' }}
-              >
-                {label}
-              </Link>
-            ) : (
-              <a
-                key={label}
-                href={to}
-                onClick={() => setMenuOpen(false)}
-                className={linkClass}
-                style={{ letterSpacing: '0.22em' }}
-              >
-                {label}
-              </a>
-            )
-          )}
+          {navLinks.map(({ label, to }) => (
+            <Link
+              key={label}
+              to={to}
+              onClick={() => setMenuOpen(false)}
+              className={linkClass}
+              style={{ letterSpacing: '0.22em' }}
+            >
+              {label}
+            </Link>
+          ))}
           <Link
             to="/admin"
             onClick={() => setMenuOpen(false)}
@@ -140,7 +109,6 @@ export default function Navbar() {
             Admin
           </Link>
 
-          {/* Mobile auth buttons */}
           <div className="border-t border-gold/30 pt-4 mt-4 flex flex-col gap-4">
             {user ? (
               <>

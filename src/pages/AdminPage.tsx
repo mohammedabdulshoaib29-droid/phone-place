@@ -1,323 +1,223 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import Breadcrumbs from '../components/Breadcrumbs';
 import api from '../utils/api';
-import type { Order, OrderStatus } from '../types/order';
+import { getRepairBookings, REPAIR_ISSUE_LABELS, REPAIR_STATUS_LABELS } from '../utils/repairs';
+import type { Order } from '../types/order';
 
-const ADMIN_PIN = 'phonePalace2025';
-
-const STATUS_COLORS: Record<OrderStatus, string> = {
-  pending:   'text-yellow-400',
-  confirmed: 'text-blue-400',
-  delivered: 'text-green-400',
-};
+const ENV_ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN?.trim() ?? '';
 
 export default function AdminPage() {
-  const navigate = useNavigate();
-  const [pin,        setPin]        = useState('');
-  const [authed,     setAuthed]     = useState(false);
-  const [orders,     setOrders]     = useState<Order[]>([]);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState('');
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [pinError,   setPinError]   = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
+  const [pin, setPin] = useState('');
+  const [authed, setAuthed] = useState(ENV_ADMIN_PIN === '');
+  const [pinError, setPinError] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const { data } = await api.get<Order[]>('/orders');
-      setOrders(data);
-    } catch {
-      setError('Failed to fetch orders. Is the backend server running?');
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
-    if (authed) fetchOrders();
-  }, [authed, fetchOrders]);
+    const fetchOrders = async () => {
+      try {
+        setLoadingOrders(true);
+        const { data } = await api.get<Order[]>('/orders');
+        setOrders(Array.isArray(data) ? data : []);
+      } catch {
+        setOrders([]);
+      } finally {
+        setLoadingOrders(false);
+      }
+    };
 
-  const updateStatus = async (id: string, order_status: OrderStatus) => {
-    setUpdatingId(id);
-    try {
-      await api.patch(`/orders/${id}/status`, { order_status });
-      setOrders((prev) =>
-        prev.map((o) => (o._id === id ? { ...o, order_status } : o))
-      );
-    } catch {
-      alert('Failed to update status. Please try again.');
-    } finally {
-      setUpdatingId(null);
+    if (authed) {
+      fetchOrders();
     }
+  }, [authed]);
+
+  const repairs = useMemo(() => getRepairBookings(), [authed]);
+  const pendingApprovalCount = repairs.filter((repair) => repair.approvalStatus === 'pending').length;
+  const activeRepairCount = repairs.filter((repair) =>
+    ['under-inspection', 'quote-sent', 'waiting-for-approval', 'repair-in-progress', 'quality-check'].includes(repair.status)
+  ).length;
+  const readyCount = repairs.filter((repair) => repair.status === 'ready-for-pickup').length;
+  const orderRevenue = orders.reduce((sum, order) => sum + order.price * order.quantity, 0);
+
+  const handlePinCheck = () => {
+    if (ENV_ADMIN_PIN && pin === ENV_ADMIN_PIN) {
+      setAuthed(true);
+      setPinError(false);
+      return;
+    }
+
+    setPinError(true);
   };
 
-  const pendingCount   = orders.filter((o) => o.order_status === 'pending').length;
-  const confirmedCount = orders.filter((o) => o.order_status === 'confirmed').length;
-  const deliveredCount = orders.filter((o) => o.order_status === 'delivered').length;
-  const totalRevenue   = orders.reduce((sum, o) => sum + ((o.price ?? 0) * o.quantity), 0);
-  const todayOrders    = orders.filter(o => new Date(o.timestamp).toDateString() === new Date().toDateString()).length;
-  const pendingPayment = orders.filter(o => o.payment_method === 'cod' && o.order_status === 'pending').length;
-
-  // Suppress unused warnings - values used in JSX
-  void pendingCount, confirmedCount, deliveredCount;
-
-  const filteredOrders = orders
-    .filter(o => filterStatus === 'all' ? true : o.order_status === filterStatus)
-    .filter(o => 
-      searchTerm ? 
-        o.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.phone.includes(searchTerm) ||
-        o.product.toLowerCase().includes(searchTerm.toLowerCase())
-      : true
-    );
-
-  /* ── PIN Gate ──────────────────────────────────────────────────────── */
   if (!authed) {
-    const tryLogin = () => {
-      if (pin === ADMIN_PIN) { setAuthed(true); setPinError(false); }
-      else setPinError(true);
-    };
     return (
-      <main className="pt-32 pb-24 px-6 min-h-screen flex items-center justify-center">
-        <div className="glass-card max-w-sm w-full px-8 py-12 text-center animate-scale-in">
-          <p className="font-body text-gold text-xs uppercase tracking-widest mb-3" style={{ letterSpacing: '0.35em' }}>
-            Admin Access
-          </p>
-          <h1 className="font-display text-ivory text-3xl mb-2" style={{ fontStyle: 'italic', fontWeight: 700 }}>
-            Phone Palace
+      <main className="pt-32 pb-20 min-h-screen px-6 flex items-center justify-center">
+        <div className="glass-card w-full max-w-md p-8">
+          <p className="font-body text-gold text-xs uppercase tracking-[0.35em] mb-4">Admin Access</p>
+          <h1 className="font-display text-ivory text-4xl mb-4" style={{ fontStyle: 'italic', fontWeight: 700 }}>
+            Operations Dashboard
           </h1>
-          <p className="font-body text-silver text-xs mb-8">Order Management Dashboard</p>
-          <div className="gold-line mb-8 mx-auto" style={{ width: '60px' }} />
-
-          <div className="mb-6">
-            <label htmlFor="pin" className="block font-body text-silver text-xs uppercase tracking-widest mb-3">
-              Admin PIN
-            </label>
+          <p className="font-body text-silver text-sm leading-7 mb-8">
+            This screen no longer keeps a hardcoded admin secret in the codebase. Use the configured
+            `VITE_ADMIN_PIN` environment variable for the front-end gate while backend role checks are added.
+          </p>
+          <label className="block">
+            <span className="block font-body text-silver text-xs uppercase tracking-[0.2em] mb-3">Admin PIN</span>
             <input
-              id="pin"
               type="password"
               value={pin}
-              onChange={(e) => { setPin(e.target.value); setPinError(false); }}
-              onKeyDown={(e) => e.key === 'Enter' && tryLogin()}
-              placeholder="Enter PIN"
-              className="input-luxury text-center"
-              style={{ letterSpacing: '0.4em', fontSize: '1.1rem' }}
-              autoComplete="current-password"
+              onChange={(event) => {
+                setPin(event.target.value);
+                setPinError(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  handlePinCheck();
+                }
+              }}
+              className="input-luxury"
             />
-            {pinError && (
-              <p className="font-body text-red-400 text-xs mt-3">Incorrect PIN. Please try again.</p>
-            )}
-          </div>
-          <button onClick={tryLogin} className="btn-gold w-full">Access Dashboard</button>
+          </label>
+          {pinError && <p className="mt-4 text-sm text-red-400">Incorrect PIN.</p>}
+          <button onClick={handlePinCheck} className="btn-gold mt-8">Open Dashboard</button>
         </div>
       </main>
     );
   }
 
-  /* ── Dashboard ─────────────────────────────────────────────────────── */
   return (
     <main className="pt-24 pb-20 min-h-screen px-6">
       <Breadcrumbs />
 
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header */}
-        <div className="text-center mb-12 mt-8">
-          <p className="font-body text-gold text-xs uppercase tracking-widest mb-3" style={{ letterSpacing: '0.4em' }}>
-            Admin Dashboard
-          </p>
-          <h1 className="font-display text-ivory" style={{ fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontStyle: 'italic', fontWeight: 700 }}>
-            Order Management
+      <div className="max-w-7xl mx-auto mt-8">
+        <div className="mb-10">
+          <p className="font-body text-gold text-xs uppercase tracking-[0.35em] mb-4">Admin Dashboard</p>
+          <h1 className="font-display text-ivory text-4xl md:text-5xl mb-4" style={{ fontStyle: 'italic', fontWeight: 700 }}>
+            Repairs, orders, and customer operations in one view
           </h1>
-          <div className="gold-line mt-5 mx-auto" style={{ width: '60px' }} />
-        </div>
-
-        {/* Logout button */}
-        <div className="flex justify-end gap-4 mb-8">
-          <button
-            onClick={() => navigate('/admin/analytics')}
-            className="font-body text-gold text-xs uppercase tracking-widest hover:text-ivory transition-colors"
-            style={{ letterSpacing: '0.15em' }}
-          >
-            📊 Analytics Dashboard
-          </button>
-          <button
-            onClick={() => setAuthed(false)}
-            className="font-body text-silver text-xs uppercase tracking-widest hover:text-gold transition-colors"
-            style={{ letterSpacing: '0.15em' }}
-          >
-            🔒 Logout
-          </button>
-        </div>
-
-        {/* Enhanced Stats Grid */}
-        {orders.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-            <div className="glass-card p-6">
-              <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">Total Orders</p>
-              <p className="font-display text-gold text-3xl font-bold">{orders.length}</p>
-              <p className="font-body text-silver/50 text-xs mt-2">All time</p>
-            </div>
-
-            <div className="glass-card p-6">
-              <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">Total Revenue</p>
-              <p className="font-display text-green-500 text-3xl font-bold">₹{(totalRevenue / 1000).toFixed(1)}K</p>
-              <p className="font-body text-silver/50 text-xs mt-2">₹{totalRevenue.toLocaleString('en-IN')}</p>
-            </div>
-
-            <div className="glass-card p-6">
-              <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">Today's Orders</p>
-              <p className="font-display text-blue-500 text-3xl font-bold">{todayOrders}</p>
-              <p className="font-body text-silver/50 text-xs mt-2">New orders</p>
-            </div>
-
-            <div className="glass-card p-6">
-              <p className="font-body text-silver text-xs uppercase tracking-widest mb-3">Pending Payment</p>
-              <p className="font-display text-yellow-500 text-3xl font-bold">{pendingPayment}</p>
-              <p className="font-body text-silver/50 text-xs mt-2">COD awaiting</p>
-            </div>
-          </div>
-        )}
-
-        {/* Search & Filter */}
-        <div className="glass-card p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block font-body text-silver text-xs uppercase tracking-widest mb-3">
-                Search Orders
-              </label>
-              <input
-                type="text"
-                placeholder="Name, phone, or product"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="input-luxury w-full"
-              />
-            </div>
-
-            <div>
-              <label className="block font-body text-silver text-xs uppercase tracking-widest mb-3">
-                Filter by Status
-              </label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as OrderStatus | 'all')}
-                className="input-luxury w-full"
-              >
-                <option value="all">All Orders</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="delivered">Delivered</option>
-              </select>
-            </div>
-
-            <div className="flex items-end">
-              <button
-                onClick={fetchOrders}
-                disabled={loading}
-                className="btn-gold w-full"
-                style={{ padding: '0.7rem 1.5rem' }}
-              >
-                {loading ? 'Loading…' : '🔄 Refresh'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* States */}
-        {loading && <p className="font-body text-silver text-sm text-center py-20">Loading orders…</p>}
-        {!loading && error && <p className="font-body text-red-400 text-sm text-center py-20">{error}</p>}
-        {!loading && !error && orders.length === 0 && (
-          <p className="font-body text-silver text-sm text-center py-20">
-            No orders yet. Orders will appear here once customers place them.
+          <p className="font-body text-silver text-sm md:text-base leading-7 max-w-4xl">
+            This dashboard now reflects the business plan more closely: repair intake, approval bottlenecks,
+            service progress, and commerce activity appear together. The repair data is currently local for demo flow,
+            while orders continue to load from the existing API when available.
           </p>
-        )}
+        </div>
 
-        {/* Orders table */}
-        {!loading && filteredOrders.length > 0 && (
-          <div className="overflow-x-auto scrollbar-hide">
-            <table className="w-full min-w-[900px]">
-              <thead>
-                <tr className="border-b border-gold/15">
-                  {['Date', 'Customer', 'Product', 'Qty', 'Total', 'Payment', 'Status', 'Update'].map((h) => (
-                    <th
-                      key={h}
-                      className="font-body text-silver text-xs uppercase pb-4 pr-6 text-left"
-                      style={{ letterSpacing: '0.18em' }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.map((order) => (
-                  <tr key={order._id} className="border-b border-graphite hover:bg-graphite/40 transition-colors duration-200">
-
-                    <td className="font-body text-silver text-xs py-5 pr-6 whitespace-nowrap">
-                      {new Date(order.timestamp).toLocaleDateString('en-IN', {
-                        day: '2-digit', month: 'short', year: '2-digit',
-                      })}
-                      <br />
-                      <span className="text-silver/50">
-                        {new Date(order.timestamp).toLocaleTimeString('en-IN', {
-                          hour: '2-digit', minute: '2-digit',
-                        })}
-                      </span>
-                    </td>
-
-                    <td className="py-5 pr-6">
-                      <p className="font-body text-ivory text-xs font-medium">{order.name}</p>
-                      <p className="font-body text-silver text-xs mt-0.5">{order.phone}</p>
-                      <p className="font-body text-silver/50 text-xs mt-0.5 max-w-[140px] truncate">{order.address}</p>
-                    </td>
-
-                    <td className="py-5 pr-6">
-                      <p className="font-body text-ivory text-xs">{order.product}</p>
-                    </td>
-
-                    <td className="font-body text-ivory text-xs py-5 pr-6 text-center">{order.quantity}</td>
-
-                    <td className="font-body text-gold text-xs font-semibold py-5 pr-6 whitespace-nowrap">
-                      ₹{((order.price ?? 0) * order.quantity).toLocaleString('en-IN')}
-                    </td>
-
-                    <td className="py-5 pr-6">
-                      <span className={`font-body text-xs uppercase ${order.payment_method === 'cod' ? 'text-silver' : 'text-green-400'}`}>
-                        {order.payment_method === 'cod' ? 'COD' : 'Online'}
-                      </span>
-                    </td>
-
-                    <td className="py-5 pr-6">
-                      <span className={`font-body text-xs uppercase ${STATUS_COLORS[order.order_status] ?? 'text-silver'}`}>
-                        {order.order_status}
-                      </span>
-                    </td>
-
-                    <td className="py-5 pr-6">
-                      <select
-                        value={order.order_status}
-                        onChange={(e) => updateStatus(order._id!, e.target.value as OrderStatus)}
-                        disabled={updatingId === order._id}
-                        className="bg-charcoal border border-gold/20 text-silver font-body text-xs px-2 py-1.5 outline-none cursor-pointer hover:border-gold/40 transition-colors"
-                        style={{ letterSpacing: '0.1em' }}
-                        aria-label={`Update status for order ${order._id}`}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="delivered">Delivered</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4 mb-10">
+          <div className="glass-card p-6">
+            <p className="font-body text-silver text-xs uppercase tracking-[0.2em] mb-2">Repair Bookings</p>
+            <p className="font-display text-gold text-3xl" style={{ fontWeight: 700 }}>{repairs.length}</p>
           </div>
-        )}
+          <div className="glass-card p-6">
+            <p className="font-body text-silver text-xs uppercase tracking-[0.2em] mb-2">Approval Pending</p>
+            <p className="font-display text-gold text-3xl" style={{ fontWeight: 700 }}>{pendingApprovalCount}</p>
+          </div>
+          <div className="glass-card p-6">
+            <p className="font-body text-silver text-xs uppercase tracking-[0.2em] mb-2">Active Repairs</p>
+            <p className="font-display text-gold text-3xl" style={{ fontWeight: 700 }}>{activeRepairCount}</p>
+          </div>
+          <div className="glass-card p-6">
+            <p className="font-body text-silver text-xs uppercase tracking-[0.2em] mb-2">Ready For Pickup</p>
+            <p className="font-display text-gold text-3xl" style={{ fontWeight: 700 }}>{readyCount}</p>
+          </div>
+        </div>
+
+        <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className="glass-card p-6">
+            <div className="flex items-center justify-between gap-4 mb-6">
+              <div>
+                <p className="font-body text-gold text-xs uppercase tracking-[0.25em] mb-2">Repair Queue</p>
+                <h2 className="font-display text-ivory text-3xl" style={{ fontStyle: 'italic', fontWeight: 700 }}>
+                  Recent bookings
+                </h2>
+              </div>
+              <p className="font-body text-silver text-xs uppercase tracking-[0.2em]">Live demo data</p>
+            </div>
+
+            <div className="space-y-4">
+              {repairs.map((repair) => (
+                <div key={repair.id} className="rounded-3xl border border-gold/10 bg-charcoal/50 p-5">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div>
+                      <p className="font-body text-gold text-xs uppercase tracking-[0.2em] mb-2">{repair.id}</p>
+                      <h3 className="font-body text-ivory text-lg">{repair.customerName}</h3>
+                      <p className="font-body text-silver text-sm mt-2">
+                        {repair.brand} {repair.model} · {REPAIR_ISSUE_LABELS[repair.problemType]}
+                      </p>
+                    </div>
+                    <div className="text-left md:text-right">
+                      <p className="font-body text-silver text-xs uppercase tracking-[0.18em] mb-2">Status</p>
+                      <p className="font-body text-ivory text-sm">{REPAIR_STATUS_LABELS[repair.status]}</p>
+                      <p className="font-body text-silver/70 text-xs mt-2 capitalize">
+                        Approval {repair.approvalStatus.replace('-', ' ')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gold/10 grid gap-3 md:grid-cols-3 text-xs text-silver">
+                    <p>Service: <span className="text-ivory">{repair.serviceType}</span></p>
+                    <p>Estimate: <span className="text-ivory">Rs. {repair.costEstimate.toLocaleString('en-IN')}</span></p>
+                    <p>ETA: <span className="text-ivory">{new Date(repair.estimatedCompletionDate).toLocaleDateString('en-IN')}</span></p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-8">
+            <div className="glass-card p-6">
+              <p className="font-body text-gold text-xs uppercase tracking-[0.25em] mb-2">Order Snapshot</p>
+              <h2 className="font-display text-ivory text-3xl mb-4" style={{ fontStyle: 'italic', fontWeight: 700 }}>
+                Commerce view
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-gold/10 p-4">
+                  <p className="font-body text-silver text-xs uppercase tracking-[0.18em] mb-2">Orders</p>
+                  <p className="font-display text-gold text-2xl" style={{ fontWeight: 700 }}>
+                    {loadingOrders ? '...' : orders.length}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-gold/10 p-4">
+                  <p className="font-body text-silver text-xs uppercase tracking-[0.18em] mb-2">Revenue</p>
+                  <p className="font-display text-gold text-2xl" style={{ fontWeight: 700 }}>
+                    Rs. {orderRevenue.toLocaleString('en-IN')}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <p className="font-body text-gold text-xs uppercase tracking-[0.25em] mb-2">Operations Notes</p>
+              <div className="space-y-4 text-sm text-silver leading-7">
+                <p>Repair booking and repair tracking are now mapped to the customer-facing site flow.</p>
+                <p>Approval state, payment state, and technician notes are surfaced directly in repair tracking.</p>
+                <p>For production security, move admin authentication and role checks fully to the backend.</p>
+              </div>
+            </div>
+
+            <div className="glass-card p-6">
+              <p className="font-body text-gold text-xs uppercase tracking-[0.25em] mb-4">Latest Orders</p>
+              {orders.length === 0 ? (
+                <p className="font-body text-silver text-sm">
+                  No order data is available from the API in the current environment.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {orders.slice(0, 4).map((order) => (
+                    <div key={order._id ?? `${order.productId}-${order.timestamp}`} className="rounded-2xl border border-gold/10 p-4">
+                      <p className="font-body text-ivory text-sm">{order.product}</p>
+                      <p className="font-body text-silver text-xs mt-2">
+                        {order.name} · {order.order_status} · Rs. {(order.price * order.quantity).toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   );

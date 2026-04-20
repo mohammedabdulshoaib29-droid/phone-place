@@ -1,4 +1,4 @@
-import { useLocation, Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 type BreadcrumbItem = {
   label: string;
@@ -18,7 +18,11 @@ export default function Breadcrumbs() {
     parts.forEach((part) => {
       currentPath += `/${part}`;
 
-      if (part === 'products') {
+      if (part === 'book-repair') {
+        breadcrumbs.push({ label: 'Book Repair', path: '/book-repair' });
+      } else if (part === 'track-repair') {
+        breadcrumbs.push({ label: 'Track Repair', path: '/track-repair' });
+      } else if (part === 'products') {
         breadcrumbs.push({ label: 'Products', path: '/products' });
       } else if (part === 'product') {
         breadcrumbs.push({ label: 'Product Details', path: currentPath });
@@ -26,6 +30,12 @@ export default function Breadcrumbs() {
         breadcrumbs.push({ label: 'Checkout', path: currentPath });
       } else if (part === 'order-success') {
         breadcrumbs.push({ label: 'Order Confirmation', path: currentPath });
+      } else if (part === 'account') {
+        breadcrumbs.push({ label: 'My Account', path: '/account' });
+      } else if (part === 'profile') {
+        breadcrumbs.push({ label: 'Profile', path: '/profile' });
+      } else if (part === 'contact') {
+        breadcrumbs.push({ label: 'Contact', path: '/contact' });
       } else if (part === 'admin') {
         breadcrumbs.push({ label: 'Admin', path: currentPath });
       }
@@ -46,9 +56,7 @@ export default function Breadcrumbs() {
       <ol className="flex items-center gap-2 flex-wrap">
         {breadcrumbs.map((breadcrumb, index) => (
           <li key={breadcrumb.path} className="flex items-center gap-2">
-            {index > 0 && (
-              <span className="text-silver/50 text-xs">/</span>
-            )}
+            {index > 0 && <span className="text-silver/50 text-xs">/</span>}
             {index === breadcrumbs.length - 1 ? (
               <span className="font-body text-silver text-xs uppercase tracking-widest">
                 {breadcrumb.label}
