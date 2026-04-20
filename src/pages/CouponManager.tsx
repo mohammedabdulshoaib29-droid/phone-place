@@ -66,7 +66,7 @@ const mockCoupons: Coupon[] = [
 ];
 
 export default function CouponManager() {
-  const [coupons, setCoupons] = useState(mockCoupons);
+  const [coupons] = useState(mockCoupons);
   const [copied, setCopied] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'active' | 'expired'>('all');
 

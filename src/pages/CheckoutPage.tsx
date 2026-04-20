@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { products } from '../data/products';
 import api from '../utils/api';
 import { loadRazorpayScript } from '../utils/razorpay';
@@ -20,11 +21,12 @@ function WhatsAppIcon() {
 export default function CheckoutPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const product = products.find((p) => p.id === id);
 
-  const [name,          setName]          = useState('');
-  const [phone,         setPhone]         = useState('');
+  const [name,          setName]          = useState(user?.name || '');
+  const [phone,         setPhone]         = useState(user?.phone || '');
   const [address,       setAddress]       = useState('');
   const [quantity,      setQuantity]      = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cod');

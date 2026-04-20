@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const navLinks = [
   { label: 'Shop',     to: '/products', isRoute: true },
@@ -11,6 +12,8 @@ const navLinks = [
 ];
 
 export default function Navbar() {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [scrolled,  setScrolled]  = useState(false);
   const [menuOpen,  setMenuOpen]  = useState(false);
 
@@ -57,6 +60,37 @@ export default function Navbar() {
           <Link to="/admin" className={linkClass} style={{ letterSpacing: '0.22em' }}>
             Admin
           </Link>
+          
+          {/* Auth buttons */}
+          {user ? (
+            <div className="flex items-center gap-4 border-l border-gold/30 pl-6">
+              <span className="text-gold text-xs">Hi, {user.phone}</span>
+              <button
+                onClick={logout}
+                className={linkClass}
+                style={{ letterSpacing: '0.22em' }}
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 border-l border-gold/30 pl-6">
+              <button
+                onClick={() => navigate('/login')}
+                className={linkClass}
+                style={{ letterSpacing: '0.22em' }}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => navigate('/register')}
+                className="bg-gradient-to-r from-gold to-ivory text-charcoal text-xs font-body tracking-widest uppercase px-4 py-1.5 rounded hover:shadow-lg hover:shadow-gold/50 transition-all"
+                style={{ letterSpacing: '0.22em' }}
+              >
+                Sign Up
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Mobile hamburger */}
@@ -105,6 +139,48 @@ export default function Navbar() {
           >
             Admin
           </Link>
+
+          {/* Mobile auth buttons */}
+          <div className="border-t border-gold/30 pt-4 mt-4 flex flex-col gap-4">
+            {user ? (
+              <>
+                <span className="text-gold text-xs">Logged in: {user.phone}</span>
+                <button
+                  onClick={() => {
+                    logout();
+                    setMenuOpen(false);
+                  }}
+                  className={linkClass}
+                  style={{ letterSpacing: '0.22em' }}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => {
+                    navigate('/login');
+                    setMenuOpen(false);
+                  }}
+                  className={linkClass}
+                  style={{ letterSpacing: '0.22em' }}
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => {
+                    navigate('/register');
+                    setMenuOpen(false);
+                  }}
+                  className="bg-gradient-to-r from-gold to-ivory text-charcoal text-xs font-body tracking-widest uppercase px-4 py-2 rounded text-center w-full"
+                  style={{ letterSpacing: '0.22em' }}
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
     </nav>

@@ -212,7 +212,7 @@ export default function LoginPage() {
           )}
 
           {/* Test OTP Note (Development Only) */}
-          {process.env.NODE_ENV !== 'production' && otpSent && (
+          {import.meta.env.MODE !== 'production' && otpSent && (
             <div className="mt-6 p-3 bg-blue-500/10 border border-blue-500/30 rounded text-blue-300 text-xs">
               💡 <strong>Dev Mode:</strong> Use OTP: 123456
             </div>

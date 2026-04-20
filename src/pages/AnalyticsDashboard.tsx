@@ -42,7 +42,7 @@ const mockAnalytics: AnalyticsData = {
 };
 
 export default function AnalyticsDashboard() {
-  const [analytics, setAnalytics] = useState<AnalyticsData>(mockAnalytics);
+  const [analytics] = useState<AnalyticsData>(mockAnalytics);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('week');
   const [loading, setLoading] = useState(true);
 

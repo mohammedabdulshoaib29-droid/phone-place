@@ -30,7 +30,7 @@ interface UserProfile {
 }
 
 export default function UserProfilePage() {
-  const { user, token } = useAuth();
+  const { token } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -204,12 +204,7 @@ export default function UserProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-charcoal pt-32 pb-20 px-8">
-        <Breadcrumbs
-          items={[
-            { label: 'Home', href: '/' },
-            { label: 'Profile' },
-          ]}
-        />
+        <Breadcrumbs />
         <div className="flex justify-center items-center py-20">
           <div className="text-silver">Loading profile...</div>
         </div>
@@ -220,12 +215,7 @@ export default function UserProfilePage() {
   if (!profile) {
     return (
       <div className="min-h-screen bg-charcoal pt-32 pb-20 px-8">
-        <Breadcrumbs
-          items={[
-            { label: 'Home', href: '/' },
-            { label: 'Profile' },
-          ]}
-        />
+        <Breadcrumbs />
         <div className="flex justify-center items-center py-20">
           <div className="text-gold">Please log in to view your profile</div>
         </div>
@@ -235,12 +225,7 @@ export default function UserProfilePage() {
 
   return (
     <div className="min-h-screen bg-charcoal pt-32 pb-20 px-8">
-      <Breadcrumbs
-        items={[
-          { label: 'Home', href: '/' },
-          { label: 'My Account' },
-        ]}
-      />
+      <Breadcrumbs />
 
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-display text-ivory mb-2">My Account</h1>
