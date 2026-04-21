@@ -18,18 +18,28 @@ const generateReferralCode = () => {
 };
 
 // Email transporter (using Gmail or your email service)
-const emailTransporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER || 'phonepalace.noreply@gmail.com',
-    pass: process.env.EMAIL_PASSWORD || 'your-app-password-here',
-  },
-});
+let emailTransporter;
+try {
+  emailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
+  console.log('✅ Email service configured');
+} catch (err) {
+  console.warn('⚠️ Email service not configured - OTP will be logged only');
+  emailTransporter = null;
+}
 
 // Helper: Send OTP email
 const sendOTPEmail = async (email, phone, otp) => {
   try {
-    if (!email) return true; // Skip if no email available
+    if (!email || !emailTransporter) {
+      console.log(`📱 OTP for ${phone}: ${otp}`);
+      return { sent: false, reason: 'Email not available' };
+    }
     
     const mailOptions = {
       from: process.env.EMAIL_USER || 'phonepalace.noreply@gmail.com',
@@ -52,10 +62,12 @@ const sendOTPEmail = async (email, phone, otp) => {
     };
 
     await emailTransporter.sendMail(mailOptions);
-    return true;
+    console.log(`✅ OTP sent to ${email}`);
+    return { sent: true, reason: 'Email sent' };
   } catch (err) {
-    console.error('Email sending error:', err.message);
-    return false;
+    console.error('❌ Email sending failed:', err.message);
+    console.log(`📱 Fallback: OTP for ${phone}: ${otp}`);
+    return { sent: false, reason: err.message };
   }
 };
 
@@ -89,21 +101,17 @@ router.post('/send-otp', async (req, res) => {
     });
 
     // Try to send email if provided
+    let emailResult = { sent: false, reason: 'No email provided' };
     if (email) {
-      const emailSent = await sendOTPEmail(email, phone, otp);
-      if (!emailSent) {
-        console.warn(`Email not sent, but OTP saved: ${otp}`);
-      }
+      emailResult = await sendOTPEmail(email, phone, otp);
     }
 
-    // Log OTP for debugging
-    console.log(`📱 OTP for ${phone}: ${otp}`);
-
+    // Always return success if OTP is saved
     return res.json({
       success: true,
-      message: email 
-        ? `OTP sent to ${email}. Check your email (including spam folder).`
-        : 'OTP generated. Check your email or contact support.',
+      message: emailResult.sent
+        ? `✅ OTP sent to ${email}. Check your email (including spam folder).`
+        : `⏳ OTP generated. Check console for OTP.`,
       // Dev mode only:
       otp: process.env.NODE_ENV !== 'production' ? otp : undefined,
     });
@@ -111,7 +119,7 @@ router.post('/send-otp', async (req, res) => {
     console.error('Send OTP error:', err);
     return res.status(500).json({
       success: false,
-      error: 'Failed to send OTP. Please try again.',
+      error: 'Failed to generate OTP. Please try again.',
     });
   }
 });

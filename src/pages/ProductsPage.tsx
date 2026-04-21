@@ -3,6 +3,7 @@ import { products } from '../data/products';
 import ProductCard from '../components/ProductCard';
 import SearchFilter, { type FilterOptions } from '../components/SearchFilter';
 import Breadcrumbs from '../components/Breadcrumbs';
+import Product3DCarousel from '../components/Product3DCarousel';
 
 const ALL = 'ALL';
 const categories = [ALL, ...Array.from(new Set(products.map((p) => p.category)))];
@@ -93,6 +94,17 @@ export default function ProductsPage() {
   return (
     <main className="pt-20 pb-24 px-6 md:px-12 lg:px-20 min-h-screen">
       <Breadcrumbs />
+
+      {/* 3D Product Showcase */}
+      <div className="mb-16 mt-8">
+        <p
+          className="font-body text-gold text-xs uppercase tracking-widest mb-4 text-center"
+          style={{ letterSpacing: '0.4em' }}
+        >
+          Interactive Showcase
+        </p>
+        <Product3DCarousel products={products.slice(0, 8)} />
+      </div>
 
       {/* Header */}
       <div className="text-center mb-12 mt-6">
