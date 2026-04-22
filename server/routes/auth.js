@@ -109,28 +109,35 @@ const deleteOtpRecord = async (otpRecord, storage) => {
   inMemoryOtps.delete(otpRecord.phone);
 };
 
+const emailConfigReady = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASSWORD);
+
 // Email transporter (using Gmail or your email service)
-let emailTransporter;
-try {
-  emailTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-  });
-  console.log('✅ Email service configured');
-} catch (err) {
-  console.warn('⚠️ Email service not configured - OTP will be logged only');
-  emailTransporter = null;
+const emailTransporter = emailConfigReady
+  ? nodemailer.createTransport({
+      service: process.env.EMAIL_SERVICE || 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    })
+  : null;
+
+if (emailTransporter) {
+  console.log('Email service configured');
+} else {
+  console.warn('Email service not configured - OTP emails are disabled');
 }
 
 // Helper: Send OTP email
 const sendOTPEmail = async (email, phone, otp) => {
   try {
-    if (!email || !emailTransporter) {
-      console.log(`📱 OTP for ${phone}: ${otp}`);
-      return { sent: false, reason: 'Email not available' };
+    if (!email) {
+      return { sent: false, reason: 'Email is required' };
+    }
+
+    if (!emailTransporter) {
+      console.log(`OTP for ${phone}: ${otp}`);
+      return { sent: false, reason: 'Email service is not configured' };
     }
     
     const mailOptions = {
@@ -154,11 +161,11 @@ const sendOTPEmail = async (email, phone, otp) => {
     };
 
     await emailTransporter.sendMail(mailOptions);
-    console.log(`✅ OTP sent to ${email}`);
+    console.log(`OTP sent to ${email}`);
     return { sent: true, reason: 'Email sent' };
   } catch (err) {
-    console.error('❌ Email sending failed:', err.message);
-    console.log(`📱 Fallback: OTP for ${phone}: ${otp}`);
+    console.error('Email sending failed:', err.message);
+    console.log(`Fallback OTP for ${phone}: ${otp}`);
     return { sent: false, reason: err.message };
   }
 };
@@ -192,19 +199,23 @@ router.post('/send-otp', async (req, res) => {
       expiresAt,
     });
 
-    // Try to send email if provided
-    let emailResult = { sent: false, reason: 'No email provided' };
-    if (email) {
-      emailResult = await sendOTPEmail(email, phone, otp);
+    const emailResult = await sendOTPEmail(email, phone, otp);
+
+    if (!emailResult.sent && process.env.NODE_ENV === 'production') {
+      await clearOtpForPhone(phone);
+      return res.status(503).json({
+        success: false,
+        error:
+          emailResult.reason === 'Email service is not configured'
+            ? 'OTP email service is not set up yet. Please contact support.'
+            : 'We could not send the OTP email. Please try again in a moment.',
+      });
     }
 
-    // Always return success if OTP is saved
     return res.json({
       success: true,
-      message: emailResult.sent
-        ? `✅ OTP sent to ${email}. Check your email (including spam folder).`
-        : `⏳ OTP generated. Check console for OTP.`,
-      // Dev mode only:
+      message: `OTP sent to ${email}. Please check your inbox and spam folder.`,
+      emailSent: true,
       otp: process.env.NODE_ENV !== 'production' ? otp : undefined,
     });
   } catch (err) {

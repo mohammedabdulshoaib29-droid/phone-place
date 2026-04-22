@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function RegisterPage() {
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setInfo('');
 
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
@@ -43,10 +45,11 @@ export default function RegisterPage() {
     }
 
     try {
-      await sendOTP(cleanPhone, email);
+      const result = await sendOTP(cleanPhone, email);
       setPhone(cleanPhone);
       setStep('otp');
       setTimeLeft(120);
+      setInfo(result.message);
     } catch (err: any) {
       setError(err.message || authError || 'Failed to send OTP');
     }
@@ -83,10 +86,12 @@ export default function RegisterPage() {
 
   const handleResendOtp = async () => {
     setError('');
+    setInfo('');
     setOtp('');
     try {
-      await sendOTP(phone, email);
+      const result = await sendOTP(phone, email);
       setTimeLeft(120);
+      setInfo(result.message);
     } catch (err: any) {
       setError(err.message || authError || 'Failed to resend OTP');
     }
@@ -122,6 +127,12 @@ export default function RegisterPage() {
           {(error || authError) && (
             <div className="mb-6 rounded border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
               {error || authError}
+            </div>
+          )}
+
+          {info && (
+            <div className="mb-6 rounded border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
+              {info}
             </div>
           )}
 

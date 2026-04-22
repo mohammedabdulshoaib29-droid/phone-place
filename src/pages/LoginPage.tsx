@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
 
@@ -32,6 +33,7 @@ export default function LoginPage() {
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setInfo('');
 
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length !== 10) {
@@ -45,11 +47,12 @@ export default function LoginPage() {
     }
 
     try {
-      await sendOTP(cleanPhone, email);
+      const result = await sendOTP(cleanPhone, email);
       setPhone(cleanPhone);
       setStep('otp');
       setOtpSent(true);
       setTimeLeft(120);
+      setInfo(result.message);
     } catch (err: any) {
       setError(err.message || authError || 'Failed to send OTP');
     }
@@ -75,10 +78,12 @@ export default function LoginPage() {
 
   const handleResendOtp = async () => {
     setError('');
+    setInfo('');
     setOtp('');
     try {
-      await sendOTP(phone, email);
+      const result = await sendOTP(phone, email);
       setTimeLeft(120);
+      setInfo(result.message);
     } catch (err: any) {
       setError(err.message || authError || 'Failed to resend OTP');
     }
@@ -108,6 +113,12 @@ export default function LoginPage() {
           {(error || authError) && (
             <div className="mb-6 rounded border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
               {error || authError}
+            </div>
+          )}
+
+          {info && (
+            <div className="mb-6 rounded border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-300">
+              {info}
             </div>
           )}
 
