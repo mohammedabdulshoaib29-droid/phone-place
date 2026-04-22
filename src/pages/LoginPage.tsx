@@ -16,15 +16,13 @@ export default function LoginPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // Redirect if already logged in
   useEffect(() => {
     if (token) {
-      const from = (location.state as any)?.from?.pathname || '/';
+      const from = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/';
       navigate(from);
     }
   }, [token, navigate, location]);
 
-  // Countdown timer for OTP
   useEffect(() => {
     if (timeLeft <= 0) return;
     const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
@@ -51,9 +49,9 @@ export default function LoginPage() {
       setPhone(cleanPhone);
       setStep('otp');
       setOtpSent(true);
-      setTimeLeft(120); // 2 minutes countdown
+      setTimeLeft(120);
     } catch (err: any) {
-      setError(err.message || 'Failed to send OTP');
+      setError(err.message || authError || 'Failed to send OTP');
     }
   };
 
@@ -68,11 +66,10 @@ export default function LoginPage() {
 
     try {
       await login(phone, otp);
-      // Redirect to checkout if coming from there
-      const from = (location.state as any)?.from?.pathname || '/';
+      const from = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/';
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError(err.message || 'Invalid OTP');
+      setError(err.message || authError || 'Invalid OTP');
     }
   };
 
@@ -83,7 +80,7 @@ export default function LoginPage() {
       await sendOTP(phone, email);
       setTimeLeft(120);
     } catch (err: any) {
-      setError(err.message || 'Failed to resend OTP');
+      setError(err.message || authError || 'Failed to resend OTP');
     }
   };
 
@@ -95,36 +92,33 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-950">
       <Breadcrumbs />
 
-      <div className="max-w-md mx-auto px-4 py-12">
-        <div className="bg-slate-900 border border-emerald-500/30 rounded-lg p-8">
-          {/* Header */}
+      <div className="mx-auto max-w-md px-4 py-12">
+        <div className="rounded-lg border border-emerald-500/30 bg-slate-900 p-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-emerald-400 mb-2">
+            <h1 className="mb-2 text-3xl font-bold text-emerald-400">
               {step === 'phone' ? 'Login' : 'Verify OTP'}
             </h1>
-            <p className="text-slate-300 text-sm">
+            <p className="text-sm text-slate-300">
               {step === 'phone'
-                ? 'Enter your phone number to get started'
-                : 'Enter the OTP sent to your phone'}
+                ? 'Enter your mobile number and email to receive your OTP'
+                : 'Enter the OTP sent to your email'}
             </p>
           </div>
 
-          {/* Error Message */}
           {(error || authError) && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded text-red-300 text-sm">
+            <div className="mb-6 rounded border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
               {error || authError}
             </div>
           )}
 
-          {/* Step 1: Phone Input */}
           {step === 'phone' && (
             <form onSubmit={handlePhoneSubmit} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-emerald-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-emerald-300">
                   Mobile Number
                 </label>
                 <div className="flex">
-                  <span className="inline-flex items-center px-4 bg-slate-800 border border-r-0 border-emerald-500/30 rounded-l text-emerald-400 font-medium">
+                  <span className="inline-flex items-center rounded-l border border-r-0 border-emerald-500/30 bg-slate-800 px-4 font-medium text-emerald-400">
                     +91
                   </span>
                   <input
@@ -132,20 +126,15 @@ export default function LoginPage() {
                     inputMode="numeric"
                     placeholder="9876543210"
                     value={phone}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setPhone(value);
-                    }}
-                    className="flex-1 px-4 py-3 bg-slate-800 border border-emerald-500/30 rounded-r text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    className="flex-1 rounded-r border border-emerald-500/30 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                   />
                 </div>
-                <p className="mt-2 text-xs text-slate-400">
-                  10-digit number without country code
-                </p>
+                <p className="mt-2 text-xs text-slate-400">10-digit number without country code</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-emerald-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-emerald-300">
                   Email Address
                 </label>
                 <input
@@ -153,28 +142,25 @@ export default function LoginPage() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-800 border border-emerald-500/30 rounded text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+                  className="w-full rounded border border-emerald-500/30 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                 />
-                <p className="mt-2 text-xs text-slate-400">
-                  We'll send your OTP here
-                </p>
+                <p className="mt-2 text-xs text-slate-400">We'll send your OTP here</p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || phone.length !== 10 || !email}
-                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold py-3 rounded transition-all"
+                className="w-full rounded bg-gradient-to-r from-emerald-500 to-emerald-600 py-3 font-semibold text-white transition-all disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 hover:from-emerald-600 hover:to-emerald-700"
               >
                 {loading ? 'Sending OTP...' : 'Send OTP'}
               </button>
             </form>
           )}
 
-          {/* Step 2: OTP Input */}
           {step === 'otp' && (
             <form onSubmit={handleOtpSubmit} className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-emerald-300 mb-2">
+                <label className="mb-2 block text-sm font-medium text-emerald-300">
                   Enter OTP
                 </label>
                 <input
@@ -183,21 +169,16 @@ export default function LoginPage() {
                   placeholder="000000"
                   maxLength={6}
                   value={otp}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                    setOtp(value);
-                  }}
-                  className="w-full px-4 py-3 bg-slate-800 border border-emerald-500/30 rounded text-white text-center text-2xl tracking-widest placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full rounded border border-emerald-500/30 bg-slate-800 px-4 py-3 text-center text-2xl tracking-widest text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                 />
-                <p className="mt-2 text-xs text-slate-400">
-                  Sent to {email}
-                </p>
+                <p className="mt-2 text-xs text-slate-400">Sent to {email}</p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading || otp.length !== 6}
-                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-semibold py-3 rounded transition-all"
+                className="w-full rounded bg-gradient-to-r from-emerald-500 to-emerald-600 py-3 font-semibold text-white transition-all disabled:cursor-not-allowed disabled:from-slate-700 disabled:to-slate-700 hover:from-emerald-600 hover:to-emerald-700"
               >
                 {loading ? 'Verifying...' : 'Verify & Login'}
               </button>
@@ -212,7 +193,7 @@ export default function LoginPage() {
                     setOtpSent(false);
                     setTimeLeft(0);
                   }}
-                  className="text-emerald-400 hover:text-emerald-300 text-sm font-medium"
+                  className="text-sm font-medium text-emerald-400 hover:text-emerald-300"
                 >
                   Change Number
                 </button>
@@ -223,7 +204,7 @@ export default function LoginPage() {
                   disabled={timeLeft > 0 || loading}
                   className={`text-sm font-medium ${
                     timeLeft > 0
-                      ? 'text-slate-500 cursor-not-allowed'
+                      ? 'cursor-not-allowed text-slate-500'
                       : 'text-emerald-400 hover:text-emerald-300'
                   }`}
                 >
@@ -233,21 +214,19 @@ export default function LoginPage() {
             </form>
           )}
 
-          {/* Test OTP Note (Development Only) */}
           {import.meta.env.MODE !== 'production' && otpSent && (
-            <div className="mt-6 p-3 bg-blue-500/10 border border-blue-500/30 rounded text-blue-300 text-xs">
-              💡 <strong>Dev Mode:</strong> Use OTP: 123456
+            <div className="mt-6 rounded border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-300">
+              Dev mode note: the generated OTP is returned by the API when not in production.
             </div>
           )}
 
-          {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-slate-700 text-center text-sm text-slate-400">
+          <div className="mt-8 border-t border-slate-700 pt-6 text-center text-sm text-slate-400">
             <p>
               New to Phone Palace?
               <button
                 type="button"
                 onClick={() => navigate('/register')}
-                className="ml-1 text-emerald-400 hover:text-emerald-300 font-medium"
+                className="ml-1 font-medium text-emerald-400 hover:text-emerald-300"
               >
                 Sign Up
               </button>
@@ -255,10 +234,9 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Trust Badges */}
         <div className="mt-8 grid grid-cols-2 gap-4 text-center text-xs text-slate-400">
-          <div>🔒 Secure OTP Login</div>
-          <div>✅ One-time Verification</div>
+          <div>Secure email OTP</div>
+          <div>One-time verification</div>
         </div>
       </div>
     </div>

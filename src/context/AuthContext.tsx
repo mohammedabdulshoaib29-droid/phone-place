@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const errorMsg =
         err.response?.data?.error || err.message || 'Failed to send OTP';
       setError(errorMsg);
-      throw err;
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.message || 'Login failed';
       setError(errorMsg);
-      throw err;
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const errorMsg =
         err.response?.data?.error || err.message || 'Failed to update profile';
       setError(errorMsg);
-      throw err;
+      throw new Error(errorMsg);
     } finally {
       setLoading(false);
     }

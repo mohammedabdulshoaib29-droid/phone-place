@@ -36,21 +36,23 @@ export default function Navbar() {
   }, []);
 
   const linkClass =
-    'font-body text-silver text-xs tracking-widest uppercase hover:text-gold transition-colors duration-300';
+    'font-body text-[#6a5843] text-xs tracking-widest uppercase hover:text-gold transition-colors duration-300';
 
   return (
     <>
       <nav
         id="navbar"
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ${
-          scrolled ? 'bg-carbon/95 backdrop-blur-md shadow-lg shadow-black/20' : 'bg-transparent'
+          scrolled
+            ? 'bg-[#efe3c8]/95 backdrop-blur-md shadow-lg shadow-[#b59c70]/20'
+            : 'bg-transparent'
         }`}
       >
         <div className="flex items-center justify-between px-5 py-4 md:px-16">
           <div className="flex items-center gap-4">
             <Link
               to="/"
-              className="font-display text-ivory text-sm uppercase no-underline"
+              className="font-display text-[#2f2417] text-sm uppercase no-underline"
               style={{ letterSpacing: '0.28em' }}
             >
               Phone Palace
@@ -70,7 +72,7 @@ export default function Navbar() {
 
             {user ? (
               <div className="flex items-center gap-4 border-l border-gold/30 pl-6">
-                <span className="text-gold text-xs">Hi, {user.phone}</span>
+                <span className="text-[#8a6e2f] text-xs">Hi, {user.phone}</span>
                 <button onClick={logout} className={linkClass} style={{ letterSpacing: '0.22em' }}>
                   Logout
                 </button>
@@ -94,7 +96,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3 md:hidden">
             <Link
               to="/cart"
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gold/20 bg-charcoal/70 text-gold"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[#d7c19b] bg-[#f7eedf]/90 text-gold"
               aria-label="Open cart"
             >
               <svg
@@ -123,7 +125,7 @@ export default function Navbar() {
               aria-label="Toggle navigation menu"
               aria-expanded={menuOpen}
             >
-              <span className="block h-px w-5 bg-silver transition-all" />
+              <span className="block h-px w-5 bg-[#6a5843] transition-all" />
               <span className={`block h-px bg-gold transition-all ${menuOpen ? 'w-5' : 'w-3'}`} />
             </button>
           </div>
@@ -131,15 +133,15 @@ export default function Navbar() {
       </nav>
 
       {menuOpen && (
-        <div className="fixed inset-x-4 top-20 z-40 rounded-[1.75rem] border border-gold/15 bg-charcoal/95 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl md:hidden">
+        <div className="fixed inset-x-4 top-20 z-40 rounded-[1.75rem] border border-[#d7c19b] bg-[#f7eedf]/95 p-5 shadow-2xl shadow-[#b59c70]/20 backdrop-blur-xl md:hidden">
           <div className="mb-5 flex items-center justify-between border-b border-gold/10 pb-4">
             <div>
               <p className="font-body text-[11px] uppercase tracking-[0.28em] text-gold">Menu</p>
-              <p className="font-body text-sm text-silver">Shop, repair, and account</p>
+              <p className="font-body text-sm text-[#6a5843]">Shop, repair, and account</p>
             </div>
             <button
               onClick={() => setMenuOpen(false)}
-              className="text-xs uppercase tracking-[0.22em] text-silver"
+              className="text-xs uppercase tracking-[0.22em] text-[#6a5843]"
             >
               Close
             </button>
@@ -151,7 +153,7 @@ export default function Navbar() {
                 key={label}
                 to={to}
                 onClick={() => setMenuOpen(false)}
-                className="rounded-2xl border border-gold/10 bg-carbon/80 px-4 py-4 text-sm text-ivory"
+                className="rounded-2xl border border-[#d7c19b] bg-white/70 px-4 py-4 text-sm text-[#2f2417]"
               >
                 {label}
               </Link>
@@ -159,7 +161,7 @@ export default function Navbar() {
             <Link
               to="/cart"
               onClick={() => setMenuOpen(false)}
-              className="rounded-2xl border border-gold/10 bg-carbon/80 px-4 py-4 text-sm text-ivory"
+              className="rounded-2xl border border-[#d7c19b] bg-white/70 px-4 py-4 text-sm text-[#2f2417]"
             >
               Cart {itemCount > 0 ? `(${itemCount})` : ''}
             </Link>
@@ -169,7 +171,7 @@ export default function Navbar() {
                   logout();
                   setMenuOpen(false);
                 }}
-                className="rounded-2xl border border-gold/10 bg-carbon/80 px-4 py-4 text-left text-sm text-ivory"
+                className="rounded-2xl border border-[#d7c19b] bg-white/70 px-4 py-4 text-left text-sm text-[#2f2417]"
               >
                 Logout
               </button>

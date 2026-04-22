@@ -6,6 +6,7 @@ const User = require('../models/User');
 const OTP = require('../models/OTP');
 const { generateToken, verifyToken } = require('../middleware/auth');
 const nodemailer = require('nodemailer');
+const inMemoryOtps = new Map();
 
 // Helper: Generate 6-digit OTP
 const generateOTP = () => {
@@ -15,6 +16,97 @@ const generateOTP = () => {
 // Helper: Generate referral code
 const generateReferralCode = () => {
   return 'REF' + crypto.randomBytes(4).toString('hex').toUpperCase();
+};
+
+const getMemoryOtp = (phone) => {
+  const otpRecord = inMemoryOtps.get(phone);
+  if (!otpRecord) {
+    return null;
+  }
+
+  if (new Date() > otpRecord.expiresAt) {
+    inMemoryOtps.delete(phone);
+    return null;
+  }
+
+  return otpRecord;
+};
+
+const clearOtpForPhone = async (phone) => {
+  try {
+    await OTP.deleteMany({ phone });
+  } catch (err) {
+    console.warn('OTP cleanup fallback:', err.message);
+  }
+
+  inMemoryOtps.delete(phone);
+};
+
+const createOtpRecord = async ({ phone, code, expiresAt }) => {
+  try {
+    await OTP.create({ phone, code, expiresAt });
+    return { storage: 'database' };
+  } catch (err) {
+    console.warn('OTP storage fallback:', err.message);
+    inMemoryOtps.set(phone, {
+      phone,
+      code,
+      expiresAt,
+      attempts: 0,
+      maxAttempts: 5,
+    });
+    return { storage: 'memory' };
+  }
+};
+
+const findOtpRecord = async (phone) => {
+  try {
+    const otpRecord = await OTP.findOne({ phone });
+    if (otpRecord) {
+      return { otpRecord, storage: 'database' };
+    }
+  } catch (err) {
+    console.warn('OTP lookup fallback:', err.message);
+  }
+
+  return { otpRecord: getMemoryOtp(phone), storage: 'memory' };
+};
+
+const updateOtpAttempts = async (otpRecord, storage) => {
+  otpRecord.attempts = (otpRecord.attempts || 0) + 1;
+
+  if (storage === 'database' && typeof otpRecord.save === 'function') {
+    try {
+      await otpRecord.save();
+      return;
+    } catch (err) {
+      console.warn('OTP attempt update fallback:', err.message);
+    }
+  }
+
+  inMemoryOtps.set(otpRecord.phone, {
+    phone: otpRecord.phone,
+    code: otpRecord.code,
+    expiresAt: otpRecord.expiresAt,
+    attempts: otpRecord.attempts,
+    maxAttempts: otpRecord.maxAttempts || 5,
+  });
+};
+
+const deleteOtpRecord = async (otpRecord, storage) => {
+  if (!otpRecord) {
+    return;
+  }
+
+  if (storage === 'database' && otpRecord._id) {
+    try {
+      await OTP.deleteOne({ _id: otpRecord._id });
+    } catch (err) {
+      console.warn('OTP delete fallback:', err.message);
+    }
+  }
+
+  inMemoryOtps.delete(otpRecord.phone);
 };
 
 // Email transporter (using Gmail or your email service)
@@ -86,15 +178,15 @@ router.post('/send-otp', async (req, res) => {
       });
     }
 
-    // Delete any existing OTPs for this phone
-    await OTP.deleteMany({ phone });
+    // Keep OTP generation working even if the OTP collection is temporarily unavailable.
+    await clearOtpForPhone(phone);
 
     // Generate OTP
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Create OTP record
-    await OTP.create({
+    await createOtpRecord({
       phone,
       code: otp,
       expiresAt,
@@ -147,7 +239,7 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     // Find OTP record
-    const otpRecord = await OTP.findOne({ phone });
+    const { otpRecord, storage } = await findOtpRecord(phone);
 
     if (!otpRecord) {
       return res.status(400).json({
@@ -158,7 +250,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Check if OTP expired
     if (new Date() > otpRecord.expiresAt) {
-      await OTP.deleteOne({ _id: otpRecord._id });
+      await deleteOtpRecord(otpRecord, storage);
       return res.status(400).json({
         success: false,
         error: 'OTP expired. Please request a new one.',
@@ -167,7 +259,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Check attempts
     if (otpRecord.attempts >= otpRecord.maxAttempts) {
-      await OTP.deleteOne({ _id: otpRecord._id });
+      await deleteOtpRecord(otpRecord, storage);
       return res.status(429).json({
         success: false,
         error: 'Too many failed attempts. Please request a new OTP.',
@@ -176,8 +268,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Verify OTP code
     if (otpRecord.code !== code.toString()) {
-      otpRecord.attempts += 1;
-      await otpRecord.save();
+      await updateOtpAttempts(otpRecord, storage);
       return res.status(400).json({
         success: false,
         error: `Invalid OTP. ${otpRecord.maxAttempts - otpRecord.attempts} attempts remaining.`,
@@ -202,7 +293,7 @@ router.post('/verify-otp', async (req, res) => {
     await user.save();
 
     // Delete OTP
-    await OTP.deleteOne({ _id: otpRecord._id });
+    await deleteOtpRecord(otpRecord, storage);
 
     // Generate token
     const token = generateToken(phone);

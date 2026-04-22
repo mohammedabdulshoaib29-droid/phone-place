@@ -4,7 +4,7 @@ import Footer from './Footer';
 
 export default function Layout() {
   return (
-    <div className="bg-carbon text-ivory min-h-screen">
+    <div className="min-h-screen bg-[#efe3c8] text-[#34281c]">
       <Navbar />
       <Outlet />
       <Footer />
