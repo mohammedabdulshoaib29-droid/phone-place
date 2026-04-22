@@ -24,6 +24,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:4173',
   'https://phone-place.onrender.com',
+  'https://phone-place-api.onrender.com',
   process.env.FRONTEND_URL, // set this on Render to your static site URL
 ].filter(Boolean);
 
@@ -52,10 +53,14 @@ app.use('/api', analyticsRoutes);
 
 const distPath = path.join(__dirname, '..', 'dist');
 const indexPath = path.join(distPath, 'index.html');
+const hasFrontendBuild = () => fs.existsSync(indexPath);
 
-// ── Root + Health check ──────────────────────────────────────────────────────
-app.get('/', (_req, res) => {
-  if (fs.existsSync(indexPath)) {
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
+
+function serveFrontendOrFallback(res) {
+  if (hasFrontendBuild()) {
     return res.sendFile(indexPath);
   }
 
@@ -68,11 +73,20 @@ app.get('/', (_req, res) => {
     message: 'Phone Palace API is running',
     health: '/health',
   });
+}
+
+// ── Root + Health check ──────────────────────────────────────────────────────
+app.get('/', (_req, res) => {
+  return serveFrontendOrFallback(res);
 });
 
 app.get('/health', (_req, res) =>
   res.json({ status: 'ok', message: 'Phone Palace API is running' })
 );
+
+app.get(/^\/(?!api(?:\/|$)|health$).*/, (_req, res) => {
+  return serveFrontendOrFallback(res);
+});
 
 // ── MongoDB + Start ──────────────────────────────────────────────────────────
 app.listen(PORT, () =>

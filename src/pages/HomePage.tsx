@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -52,6 +52,7 @@ const serviceBlocks = [
 
 export default function HomePage() {
   const pageRef = useRef<HTMLElement>(null);
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     const page = pageRef.current;
@@ -131,6 +132,10 @@ export default function HomePage() {
 
     return () => media.revert();
   }, []);
+
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(filter.toLowerCase())
+  );
 
   return (
     <main ref={pageRef} className="overflow-hidden pb-16">
