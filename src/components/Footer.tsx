@@ -1,11 +1,21 @@
 import { Link } from 'react-router-dom';
 import TrustBadges from './TrustBadges';
+import { useEffect } from 'react';
+import { gsap } from 'gsap';
 
 const INSTAGRAM_URL =
   'https://www.instagram.com/phone_palace_amberpet?igsh=ZW5kbzVjNGdsb3B1';
 const WHATSAPP_URL = 'https://wa.me/917997000166';
 
 export default function Footer() {
+  useEffect(() => {
+    gsap.fromTo(
+      "#footer",
+      { y: 100, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }
+    );
+  }, []);
+
   return (
     <footer id="contact" className="py-24 px-6">
       <div className="gold-line mb-16 mx-auto" style={{ width: '100%', maxWidth: '900px' }} />

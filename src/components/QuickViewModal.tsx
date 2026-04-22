@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import type { Product } from '../data/products';
+import { useEffect } from 'react';
+import { gsap } from 'gsap';
 
 type QuickViewProps = {
   product: Product;
@@ -9,6 +11,16 @@ type QuickViewProps = {
 
 export default function QuickViewModal({ product, isOpen, onClose }: QuickViewProps) {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isOpen) {
+      gsap.fromTo(
+        "#quick-view-modal",
+        { scale: 0.8, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" }
+      );
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -22,7 +34,10 @@ export default function QuickViewModal({ product, isOpen, onClose }: QuickViewPr
       />
 
       {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      <div
+        id="quick-view-modal"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
+      >
         <div
           className="bg-charcoal border border-gold/20 rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto pointer-events-auto shadow-2xl"
           onClick={(e) => e.stopPropagation()}
@@ -50,7 +65,7 @@ export default function QuickViewModal({ product, isOpen, onClose }: QuickViewPr
               <img
                 src={product.image}
                 alt={product.name}
-                className="w-full h-64 object-cover"
+                className="transform transition-transform duration-500 hover:rotate-3 hover:scale-105"
               />
             </div>
 

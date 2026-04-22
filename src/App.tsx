@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes, useEffect } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import AuthGuard from './components/AuthGuard';
@@ -24,8 +24,33 @@ import RepairBookingPage from './pages/RepairBookingPage';
 import RepairTrackingPage from './pages/RepairTrackingPage';
 import AccountDashboardPage from './pages/AccountDashboardPage';
 import UserProfilePage from './pages/UserProfilePage';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function App() {
+  useEffect(() => {
+    gsap.utils.toArray("section").forEach((section) => {
+      gsap.fromTo(
+        section,
+        { opacity: 0, y: 50 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 1,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: section,
+            start: "top 80%",
+            end: "bottom 20%",
+            toggleActions: "play none none reverse",
+          },
+        }
+      );
+    });
+  }, []);
+
   return (
     <AuthProvider>
       <BrowserRouter>
