@@ -38,7 +38,9 @@ export default function Navbar() {
   return (
     <nav
       id="navbar"
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-700 flex items-center justify-between px-8 py-4 md:px-16"
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-4 md:px-16 transition-all duration-700 ${
+        scrolled ? 'bg-carbon/95 backdrop-blur-md shadow-lg shadow-black/20' : 'bg-transparent'
+      }`}
     >
       <div className="flex items-center gap-4">
         <Link

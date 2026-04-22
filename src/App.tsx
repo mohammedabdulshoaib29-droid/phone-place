@@ -1,4 +1,5 @@
-import { BrowserRouter, Route, Routes, useEffect } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Layout from './components/Layout';
 import AuthGuard from './components/AuthGuard';
@@ -31,7 +32,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function App() {
   useEffect(() => {
-    gsap.utils.toArray("section").forEach((section) => {
+    gsap.utils.toArray<HTMLElement>('section').forEach((section) => {
       gsap.fromTo(
         section,
         { opacity: 0, y: 50 },
@@ -39,12 +40,12 @@ export default function App() {
           opacity: 1,
           y: 0,
           duration: 1,
-          ease: "power3.out",
+          ease: 'power3.out',
           scrollTrigger: {
             trigger: section,
-            start: "top 80%",
-            end: "bottom 20%",
-            toggleActions: "play none none reverse",
+            start: 'top 80%',
+            end: 'bottom 20%',
+            toggleActions: 'play none none reverse',
           },
         }
       );
