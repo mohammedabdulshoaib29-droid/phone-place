@@ -22,6 +22,21 @@
   * {
     box-sizing: border-box;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer utilities {
@@ -104,15 +119,37 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .hero-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 72px 72px;
+  }
+
+  .mask-bottom {
+    mask-image: linear-gradient(to bottom, black 65%, transparent 100%);
+  }
+
+  .performance-layer {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .mobile-safe-bottom {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
 }
 
-/* Add 3D hover effects for buttons */
-button {
-  transform: perspective(1000px) translateZ(0);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
+@media (hover: hover) and (pointer: fine) {
+  button {
+    transform: perspective(1000px) translateZ(0);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
 
-button:hover {
-  transform: perspective(1000px) translateZ(10px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  button:hover {
+    transform: perspective(1000px) translateZ(10px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+  }
 }

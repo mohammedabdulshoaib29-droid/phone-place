@@ -46,10 +46,10 @@ export default function CartPage() {
   };
 
   const handleCheckout = () => {
-    if (!cart?.items || cart.items.length === 0) {
+    if (!cart?.items || cart.items.length !== 1) {
       return;
     }
-    navigate('/checkout');
+    navigate(`/checkout/${cart.items[0].productId}`);
   };
 
   if (loading) {
@@ -67,6 +67,7 @@ export default function CartPage() {
 
   const itemCount = cart?.items.reduce((sum, item) => sum + item.quantity, 0) || 0;
   const isEmpty = !cart?.items || cart.items.length === 0;
+  const canDirectCheckout = Boolean(cart?.items.length === 1 && cart.items[0]?.productId);
 
   return (
     <main className="pt-24 pb-20 min-h-screen px-6">
@@ -137,6 +138,12 @@ export default function CartPage() {
                   <div className="flex-1">
                     <h3 className="text-ivory font-semibold text-lg mb-1">{item.productName}</h3>
                     <p className="text-slate-400 text-sm mb-2">{item.productCategory}</p>
+                    <button
+                      onClick={() => navigate(`/product/${item.productId}`)}
+                      className="mb-3 text-xs uppercase tracking-[0.18em] text-gold"
+                    >
+                      View product
+                    </button>
 
                     {item.variant && (
                       <p className="text-emerald-400 text-sm mb-3">
@@ -229,10 +236,18 @@ export default function CartPage() {
                 {/* Checkout button */}
                 <button
                   onClick={handleCheckout}
+                  disabled={!canDirectCheckout}
                   className="w-full bg-gradient-to-r from-gold to-gold/80 hover:from-gold/90 hover:to-gold text-carbon font-semibold py-3 px-6 rounded transition-all"
                 >
-                  Proceed to Checkout
+                  {canDirectCheckout ? 'Proceed to Checkout' : 'Use Buy Now from Product Page'}
                 </button>
+
+                {!canDirectCheckout && (
+                  <p className="text-xs leading-6 text-slate-400">
+                    Checkout is currently available one product at a time. Open a saved product and
+                    continue with Buy Now.
+                  </p>
+                )}
 
                 {/* Trust badges */}
                 <div className="border-t border-gold/20 pt-6 space-y-3 text-xs text-slate-400">

@@ -1,17 +1,32 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { products } from '../data/products';
 import { getProductReviews } from '../data/reviews';
 import Breadcrumbs from '../components/Breadcrumbs';
 import ReviewsList from '../components/ReviewsList';
 import ProductCard from '../components/ProductCard';
+import { useAuth } from '../hooks/useAuth';
+import { useCart } from '../hooks/useCart';
+
+gsap.registerPlugin(ScrollTrigger);
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const contentRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { addToCart, error: cartError } = useCart();
+
+  const pageRef = useRef<HTMLElement>(null);
+  const actionPanelRef = useRef<HTMLDivElement>(null);
+  const mobileNoticeTimerRef = useRef<number | null>(null);
+
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState(0);
+  const [isAdding, setIsAdding] = useState(false);
+  const [cartNotice, setCartNotice] = useState('');
+  const [showMobileBar, setShowMobileBar] = useState(true);
 
   const product = products.find((p) => p.id === id);
   const reviews = product ? getProductReviews(product.id) : [];
@@ -19,19 +34,124 @@ export default function ProductDetailPage() {
     ? products.filter((p) => product.relatedIds.includes(p.id)).slice(0, 3)
     : [];
 
+  const activeVariant = product?.variants[selectedVariant];
+  const activePrice = activeVariant?.price ?? product?.price ?? 0;
+  const activeStock = activeVariant?.stockStatus ?? product?.stockStatus ?? 'out-of-stock';
+  const savings = product?.originalPrice ? product.originalPrice - activePrice : 0;
+
+  const featureSummary = useMemo(
+    () =>
+      product
+        ? [
+            { label: 'Ships with', value: 'Secure packaging and compatibility check' },
+            { label: 'Support', value: 'WhatsApp and phone help before checkout' },
+            { label: 'Ideal for', value: product.compatibleWith.slice(0, 2).join(', ') || 'Most recent phones' },
+          ]
+        : [],
+    [product]
+  );
+
   useEffect(() => {
     window.scrollTo(0, 0);
-    const el = contentRef.current;
-    if (!el) return;
-    const timer = setTimeout(() => el.classList.add('visible'), 100);
-    return () => clearTimeout(timer);
+    setSelectedImage(0);
+    setSelectedVariant(0);
+    setCartNotice('');
   }, [id]);
+
+  useEffect(() => {
+    const panel = actionPanelRef.current;
+    if (!panel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowMobileBar(!entry.isIntersecting),
+      { threshold: 0.35 }
+    );
+
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [product?.id]);
+
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+
+    const media = gsap.matchMedia();
+
+    media.add('(prefers-reduced-motion: no-preference)', () => {
+      const ctx = gsap.context(() => {
+        gsap.fromTo(
+          '[data-detail-hero]',
+          { autoAlpha: 0, y: 32 },
+          { autoAlpha: 1, y: 0, duration: 0.85, ease: 'power3.out' }
+        );
+
+        gsap.fromTo(
+          '[data-detail-card]',
+          { autoAlpha: 0, y: 48 },
+          {
+            autoAlpha: 1,
+            y: 0,
+            duration: 0.75,
+            ease: 'power3.out',
+            stagger: 0.1,
+          }
+        );
+
+        gsap.utils.toArray<HTMLElement>('[data-detail-reveal]').forEach((element) => {
+          gsap.fromTo(
+            element,
+            { autoAlpha: 0, y: 32 },
+            {
+              autoAlpha: 1,
+              y: 0,
+              duration: 0.75,
+              ease: 'power3.out',
+              scrollTrigger: {
+                trigger: element,
+                start: 'top 85%',
+                once: true,
+              },
+            }
+          );
+        });
+
+        gsap.utils.toArray<HTMLElement>('[data-image-parallax]').forEach((image) => {
+          gsap.fromTo(
+            image,
+            { yPercent: -6 },
+            {
+              yPercent: 6,
+              ease: 'none',
+              scrollTrigger: {
+                trigger: image,
+                start: 'top bottom',
+                end: 'bottom top',
+                scrub: true,
+              },
+            }
+          );
+        });
+      }, page);
+
+      return () => ctx.revert();
+    });
+
+    return () => media.revert();
+  }, [product?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (mobileNoticeTimerRef.current) {
+        window.clearTimeout(mobileNoticeTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!product) {
     return (
-      <main className="pt-40 pb-24 px-6 text-center min-h-screen flex flex-col items-center justify-center">
+      <main className="flex min-h-screen flex-col items-center justify-center px-6 pb-24 pt-40 text-center">
         <Breadcrumbs />
-        <p className="font-body text-silver mb-8">Product not found.</p>
+        <p className="mb-8 font-body text-silver">Product not found.</p>
         <button onClick={() => navigate('/products')} className="btn-gold">
           View All Products
         </button>
@@ -39,239 +159,286 @@ export default function ProductDetailPage() {
     );
   }
 
+  const handleAddToCart = async () => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (activeStock === 'out-of-stock') {
+      setCartNotice('This option is currently out of stock.');
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      await addToCart(
+        product.id,
+        product.name,
+        product.category,
+        activePrice,
+        1,
+        activeVariant ? { label: activeVariant.label, value: activeVariant.value } : undefined,
+        product.image
+      );
+      setCartNotice(`${product.name} added to cart.`);
+      if (mobileNoticeTimerRef.current) {
+        window.clearTimeout(mobileNoticeTimerRef.current);
+      }
+      mobileNoticeTimerRef.current = window.setTimeout(() => setCartNotice(''), 2600);
+    } catch {
+      // Error is surfaced through cartError.
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   return (
-    <main className="pt-20 min-h-screen">
+    <main ref={pageRef} className="min-h-screen pb-32 pt-20 md:pb-20">
       <Breadcrumbs />
 
-      <section className="py-12 px-6 md:px-12 lg:px-20">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 mb-20">
-          {/* Image Gallery */}
-          <div ref={contentRef} className="fade-section">
-            {/* Main Image */}
-            <div className="relative mb-4 h-96 md:h-[500px] overflow-hidden rounded-lg group">
-              <img
-                src={product.gallery[selectedImage] || product.image}
-                alt={product.name}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 cursor-zoom-in"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-carbon/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                <span className="text-silver text-xs">Hover to zoom</span>
+      <section className="px-5 py-10 md:px-12 lg:px-20">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="space-y-4">
+            <div
+              data-detail-hero
+              className="performance-layer relative overflow-hidden rounded-[2.25rem] border border-gold/10 bg-charcoal/50 opacity-0"
+            >
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(201,168,76,0.14),transparent_26%)]" />
+              <div className="relative h-[420px] overflow-hidden md:h-[560px]">
+                <img
+                  data-image-parallax
+                  src={product.gallery[selectedImage] || product.image}
+                  alt={product.name}
+                  className="h-[110%] w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-carbon/55 via-carbon/10 to-transparent" />
+                <div className="absolute bottom-5 left-5 rounded-full border border-gold/20 bg-carbon/75 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-gold">
+                  Swipe-ready product media
+                </div>
               </div>
             </div>
 
-            {/* Thumbnail Gallery */}
-            {product.gallery && product.gallery.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto">
-                {product.gallery.map((image, i) => (
+            {product.gallery.length > 1 && (
+              <div className="grid grid-cols-4 gap-3">
+                {product.gallery.map((image, index) => (
                   <button
-                    key={i}
-                    onClick={() => setSelectedImage(i)}
-                    className={`flex-shrink-0 w-20 h-20 rounded overflow-hidden border-2 transition-all ${
-                      selectedImage === i ? 'border-gold' : 'border-gold/20 hover:border-gold/40'
+                    key={image}
+                    type="button"
+                    onClick={() => setSelectedImage(index)}
+                    className={`overflow-hidden rounded-[1.2rem] border transition-all ${
+                      selectedImage === index
+                        ? 'border-gold shadow-lg shadow-gold/10'
+                        : 'border-gold/10'
                     }`}
                   >
-                    <img src={image} alt={`${product.name} view ${i + 1}`} className="w-full h-full object-cover" />
+                    <img
+                      src={image}
+                      alt={`${product.name} view ${index + 1}`}
+                      className="h-20 w-full object-cover md:h-24"
+                    />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Product Info */}
-          <div className="fade-section" style={{ transitionDelay: '100ms' }}>
-            {/* Badges */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {product.featured && (
-                <span className="px-3 py-1 bg-gold/10 border border-gold/30 text-gold text-xs rounded font-semibold">
-                  Featured
+          <div className="space-y-6">
+            <div data-detail-card className="performance-layer opacity-0">
+              <div className="mb-4 flex flex-wrap gap-2">
+                {product.featured && (
+                  <span className="rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-semibold text-gold">
+                    Featured
+                  </span>
+                )}
+                {product.bestSeller && (
+                  <span className="rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                    Best Seller
+                  </span>
+                )}
+                {product.isNew && (
+                  <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1 text-xs font-semibold text-sky-300">
+                    New
+                  </span>
+                )}
+                <span className="rounded-full border border-gold/15 bg-charcoal/70 px-3 py-1 text-xs font-semibold text-silver">
+                  {activeStock === 'in-stock'
+                    ? 'In Stock'
+                    : activeStock === 'low-stock'
+                      ? 'Low Stock'
+                      : 'Out of Stock'}
                 </span>
-              )}
-              {product.bestSeller && (
-                <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-400/30 text-emerald-300 text-xs rounded font-semibold">
-                  Best Seller
-                </span>
-              )}
-              {product.isNew && (
-                <span className="px-3 py-1 bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs rounded font-semibold">
-                  New
-                </span>
-              )}
-              <span
-                className={`px-3 py-1 rounded text-xs font-semibold border ${
-                  product.stockStatus === 'in-stock'
-                    ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-300'
-                    : product.stockStatus === 'low-stock'
-                      ? 'bg-amber-500/10 border-amber-400/30 text-amber-300'
-                      : 'bg-red-500/10 border-red-400/30 text-red-300'
-                }`}
-              >
-                {product.stockStatus === 'in-stock'
-                  ? 'In Stock'
-                  : product.stockStatus === 'low-stock'
-                    ? 'Low Stock'
-                    : 'Out of Stock'}
-              </span>
-            </div>
-
-            {/* Category */}
-            <p
-              className="font-body text-gold text-xs uppercase tracking-widest mb-3"
-              style={{ letterSpacing: '0.35em' }}
-            >
-              {product.category}
-            </p>
-
-            {/* Name */}
-            <h1
-              className="font-display text-ivory leading-tight mb-3"
-              style={{ fontSize: 'clamp(2rem, 6vw, 4rem)', fontStyle: 'italic', fontWeight: 700 }}
-            >
-              {product.name}
-            </h1>
-
-            {/* Rating & Reviews */}
-            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gold/10">
-              <div className="flex items-center gap-2">
-                <div className="flex">
-                  {[...Array(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill={i < Math.floor(product.rating) ? 'currentColor' : 'none'}
-                      stroke="currentColor"
-                      className={i < Math.floor(product.rating) ? 'text-gold' : 'text-gold/30'}
-                    >
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                    </svg>
-                  ))}
-                </div>
-                <span className="font-display text-gold text-lg font-semibold">{product.rating}</span>
               </div>
-              <span className="font-body text-silver text-sm">
-                {product.reviewCount} customer reviews
-              </span>
-            </div>
 
-            {/* Tagline */}
-            <p
-              className="font-display text-ivory/80 text-lg md:text-xl mb-6 leading-snug"
-              style={{ fontStyle: 'italic' }}
-            >
-              "{product.tagline}"
-            </p>
-
-            {/* Price */}
-            <div className="flex items-baseline gap-3 mb-8">
-              <p className="font-display text-gold text-3xl font-semibold">
-                ₹{product.price.toLocaleString('en-IN')}
+              <p className="font-body text-[11px] uppercase tracking-[0.32em] text-gold">
+                {product.category}
               </p>
-              {product.originalPrice && (
-                <>
-                  <p className="font-body text-silver/50 line-through text-lg">
-                    ₹{product.originalPrice.toLocaleString('en-IN')}
-                  </p>
-                  <p className="font-body text-emerald-400 text-sm font-semibold">
-                    Save ₹{(product.originalPrice - product.price).toLocaleString('en-IN')}
-                  </p>
-                </>
-              )}
+              <h1
+                className="mt-4 max-w-2xl font-display text-5xl leading-[0.95] text-ivory md:text-6xl"
+                style={{ fontStyle: 'italic', fontWeight: 700 }}
+              >
+                {product.name}
+              </h1>
+              <p className="mt-5 max-w-2xl font-body text-base leading-8 text-silver">
+                {product.description}
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center gap-5 border-b border-gold/10 pb-6 text-sm text-silver">
+                <span>{product.rating} rating</span>
+                <span>{product.reviewCount} verified reviews</span>
+                <span>{product.compatibleWith.length} compatibility targets</span>
+              </div>
             </div>
 
-            {/* Divider */}
-            <div className="gold-line mb-8" />
-
-            {/* Description */}
-            <p className="font-body text-silver leading-relaxed text-sm mb-8">
-              {product.description}
-            </p>
-
-            {/* Compatible Devices */}
-            {product.compatibleWith.length > 0 && (
-              <div className="mb-8">
-                <p className="font-body text-gold text-xs uppercase tracking-widest mb-2">
-                  Compatible With
-                </p>
-                <p className="font-body text-silver text-sm">
-                  {product.compatibleWith.join(', ')}
-                </p>
-              </div>
-            )}
-
-            {/* Variant Selector */}
-            {product.variants.length > 0 && (
-              <div className="mb-8 pb-8 border-b border-gold/10">
-                <p className="font-body text-gold text-xs uppercase tracking-widest mb-3">
-                  Choose Option
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {product.variants.map((variant, i) => (
-                    <button
-                      key={variant.value}
-                      onClick={() => setSelectedVariant(i)}
-                      className={`p-3 rounded border-2 transition-all text-sm font-semibold ${
-                        selectedVariant === i
-                          ? 'border-gold bg-gold/10 text-gold'
-                          : 'border-gold/20 text-silver hover:border-gold/40'
-                      } ${
-                        variant.stockStatus === 'out-of-stock'
-                          ? 'opacity-50 cursor-not-allowed'
-                          : ''
-                      }`}
-                      disabled={variant.stockStatus === 'out-of-stock'}
-                    >
-                      <div>{variant.label}</div>
-                      {variant.price && variant.price !== product.price && (
-                        <div className="text-xs mt-1 opacity-75">
-                          +₹{(variant.price - product.price).toLocaleString('en-IN')}
-                        </div>
+            <div
+              ref={actionPanelRef}
+              data-detail-card
+              className="performance-layer sticky top-24 rounded-[2rem] border border-gold/10 bg-charcoal/70 p-6 opacity-0 backdrop-blur-xl"
+            >
+              <div className="flex flex-col gap-5">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="font-body text-[11px] uppercase tracking-[0.24em] text-gold">
+                      Sticky purchase panel
+                    </p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <p className="font-display text-3xl text-ivory" style={{ fontWeight: 700 }}>
+                        Rs. {activePrice.toLocaleString('en-IN')}
+                      </p>
+                      {product.originalPrice && (
+                        <p className="text-sm text-silver/50 line-through">
+                          Rs. {product.originalPrice.toLocaleString('en-IN')}
+                        </p>
                       )}
-                    </button>
+                    </div>
+                    {product.originalPrice && savings > 0 && (
+                      <p className="mt-2 text-xs uppercase tracking-[0.2em] text-emerald-300">
+                        Save Rs. {savings.toLocaleString('en-IN')}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/checkout/${product.id}`)}
+                    className="rounded-full border border-gold/20 px-4 py-3 text-[11px] uppercase tracking-[0.24em] text-gold"
+                  >
+                    Buy Now
+                  </button>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {featureSummary.map((item) => (
+                    <div key={item.label} className="rounded-[1.3rem] border border-white/8 bg-carbon/60 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-gold">{item.label}</p>
+                      <p className="mt-2 text-sm leading-6 text-silver">{item.value}</p>
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
 
-            {/* Specifications */}
+                {product.variants.length > 0 && (
+                  <div>
+                    <p className="mb-3 text-[11px] uppercase tracking-[0.26em] text-gold">
+                      Choose Option
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {product.variants.map((variant, index) => {
+                        const isActive = selectedVariant === index;
+                        const isOut = variant.stockStatus === 'out-of-stock';
+                        const variantPrice = variant.price ?? product.price;
+
+                        return (
+                          <button
+                            key={variant.value}
+                            type="button"
+                            onClick={() => setSelectedVariant(index)}
+                            disabled={isOut}
+                            className={`rounded-[1.2rem] border px-4 py-4 text-left transition-all ${
+                              isActive
+                                ? 'border-gold bg-gold/10'
+                                : 'border-gold/10 bg-carbon/55'
+                            } ${isOut ? 'cursor-not-allowed opacity-45' : ''}`}
+                          >
+                            <div className="text-sm text-ivory">{variant.label}</div>
+                            <div className="mt-2 text-xs uppercase tracking-[0.18em] text-silver">
+                              Rs. {variantPrice.toLocaleString('en-IN')}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleAddToCart}
+                    disabled={isAdding || activeStock === 'out-of-stock'}
+                    className="flex-1 rounded-full bg-gold px-6 py-4 text-xs uppercase tracking-[0.24em] text-carbon transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isAdding ? 'Adding...' : 'Add To Cart'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/products')}
+                    className="flex-1 rounded-full border border-gold/15 px-6 py-4 text-xs uppercase tracking-[0.24em] text-silver"
+                  >
+                    Back To Collection
+                  </button>
+                </div>
+
+                {(cartNotice || cartError) && (
+                  <p className={`text-sm ${cartError ? 'text-red-300' : 'text-emerald-300'}`}>
+                    {cartError || cartNotice}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div
+              data-detail-reveal
+              className="performance-layer rounded-[2rem] border border-gold/10 bg-charcoal/50 p-6 opacity-0"
+            >
+              <p className="text-[11px] uppercase tracking-[0.26em] text-gold">Product Story</p>
+              <p className="mt-4 text-sm leading-8 text-silver">"{product.tagline}"</p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {product.compatibleWith.map((device) => (
+                  <span
+                    key={device}
+                    className="rounded-full border border-gold/12 bg-carbon/70 px-4 py-2 text-xs text-silver"
+                  >
+                    {device}
+                  </span>
+                ))}
+              </div>
+            </div>
+
             {product.specifications.length > 0 && (
-              <div className="mb-8 pb-8 border-b border-gold/10">
-                <p className="font-body text-gold text-xs uppercase tracking-widest mb-4">
+              <div
+                data-detail-reveal
+                className="performance-layer rounded-[2rem] border border-gold/10 bg-charcoal/50 p-6 opacity-0"
+              >
+                <p className="mb-4 text-[11px] uppercase tracking-[0.26em] text-gold">
                   Specifications
                 </p>
                 <div className="space-y-3">
                   {product.specifications.map((spec) => (
-                    <div key={spec.label} className="flex justify-between">
-                      <p className="font-body text-silver/60 text-sm">{spec.label}</p>
-                      <p className="font-body text-silver text-sm font-semibold">{spec.value}</p>
+                    <div key={spec.label} className="flex justify-between gap-4 border-b border-gold/5 pb-3">
+                      <p className="text-sm text-silver/70">{spec.label}</p>
+                      <p className="text-right text-sm font-semibold text-ivory">{spec.value}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={() => navigate(`/checkout/${product.id}`)}
-                className="btn-gold flex-1"
-                style={{ padding: '1rem 2rem' }}
-              >
-                Book Now
-              </button>
-              <button
-                onClick={() => navigate('/products')}
-                className="flex-1 border border-gold/30 text-silver hover:bg-gold/5 transition-colors px-6 py-4 rounded text-xs uppercase tracking-widest font-semibold"
-              >
-                ← Back to Collection
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* Reviews Section */}
         {reviews.length > 0 && (
-          <div className="max-w-6xl mx-auto border-t border-gold/10 pt-16">
+          <div
+            data-detail-reveal
+            className="performance-layer mx-auto mt-20 max-w-6xl border-t border-gold/10 pt-14 opacity-0"
+          >
             <ReviewsList
               reviews={reviews}
               maxDisplay={3}
@@ -281,39 +448,58 @@ export default function ProductDetailPage() {
           </div>
         )}
 
-        {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <div className="max-w-6xl mx-auto mt-24">
-            <div className="text-center mb-16">
-              <p
-                className="font-body text-gold text-xs uppercase tracking-widest mb-4"
-                style={{ letterSpacing: '0.4em' }}
-              >
-                You Might Also Like
-              </p>
+          <div className="mx-auto mt-20 max-w-6xl">
+            <div data-detail-reveal className="performance-layer mb-12 text-center opacity-0">
+              <p className="text-[11px] uppercase tracking-[0.3em] text-gold">You Might Also Like</p>
               <h2
-                className="font-display text-ivory"
-                style={{
-                  fontSize: 'clamp(1.8rem, 5vw, 3.5rem)',
-                  fontStyle: 'italic',
-                  fontWeight: 700,
-                }}
+                className="mt-4 font-display text-4xl text-ivory"
+                style={{ fontStyle: 'italic', fontWeight: 700 }}
               >
-                Related Products
+                Complete the cart with matching picks
               </h2>
-              <div className="gold-line mt-6 mx-auto" style={{ width: '80px' }} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-graphite">
-              {relatedProducts.map((p, i) => (
-                <div key={p.id} className="bg-carbon">
-                  <ProductCard product={p} delay={i * 80} />
+            <div className="grid grid-cols-1 gap-px bg-graphite md:grid-cols-3">
+              {relatedProducts.map((item, index) => (
+                <div key={item.id} className="bg-carbon">
+                  <ProductCard product={item} delay={index * 90} />
                 </div>
               ))}
             </div>
           </div>
         )}
       </section>
+
+      {showMobileBar && (
+        <div className="mobile-safe-bottom fixed inset-x-4 bottom-4 z-40 md:hidden">
+          <div className="rounded-[1.5rem] border border-gold/15 bg-charcoal/95 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl">
+            <div className="mb-3 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.24em] text-gold">Quick add</p>
+                <p className="mt-1 text-lg font-semibold text-ivory">
+                  Rs. {activePrice.toLocaleString('en-IN')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate(`/checkout/${product.id}`)}
+                className="text-[11px] uppercase tracking-[0.22em] text-silver"
+              >
+                Buy now
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={isAdding || activeStock === 'out-of-stock'}
+              className="w-full rounded-full bg-gold px-6 py-4 text-xs uppercase tracking-[0.24em] text-carbon transition-all disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isAdding ? 'Adding...' : 'Add To Cart'}
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
