@@ -1,5 +1,4 @@
 services:
-  # ── Backend API ────────────────────────────────────────────────────────────
   - type: web
     name: phone-place-api
     runtime: node
@@ -17,8 +16,13 @@ services:
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        sync: false
+      - key: OPENAI_API_URL
+        sync: false
 
-  # ── Frontend Static Site ───────────────────────────────────────────────────
   - type: web
     name: phone-place
     runtime: static

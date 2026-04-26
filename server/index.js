@@ -14,6 +14,7 @@ const notificationRoutes = require('./routes/notifications');
 const reviewRoutes   = require('./routes/reviews');
 const adminRoutes    = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
+const aiRoutes       = require('./routes/ai');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +51,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api', adminRoutes);
 app.use('/api', analyticsRoutes);
+app.use('/api/ai', aiRoutes);
 
 const distPath = path.join(__dirname, '..', 'dist');
 const indexPath = path.join(distPath, 'index.html');

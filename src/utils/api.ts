@@ -26,4 +26,45 @@ const api = axios.create({
   },
 });
 
+export interface SupportChatContext {
+  page?: string;
+  pathname?: string;
+  orderId?: string;
+  productId?: string;
+  productSummary?: {
+    id: string;
+    name: string;
+    category: string;
+    price: number;
+    stockStatus: string;
+    compatibleWith: string[];
+  };
+}
+
+export async function requestSupportReply(
+  message: string,
+  context: SupportChatContext,
+  token?: string | null
+) {
+  const url = token ? '/ai/support/account' : '/ai/support';
+  const response = await api.post(
+    url,
+    { message, context },
+    token
+      ? {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      : undefined
+  );
+
+  return response.data as {
+    success: boolean;
+    reply: string;
+    intent: string;
+    usedModel: boolean;
+  };
+}
+
 export default api;
